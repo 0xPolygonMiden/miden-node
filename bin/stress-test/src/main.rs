@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -47,6 +48,7 @@ use rayon::{
     prelude::ParallelSlice,
 };
 use tokio::{fs, io::AsyncWriteExt, net::TcpListener, task};
+use futures::stream;
 use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use winterfell::Proof;
 
@@ -98,6 +100,11 @@ pub enum Command {
         /// Iterations of the sync request.
         #[arg(short, long, value_name = "ITERATIONS", default_value = "1")]
         iterations: usize,
+
+        /// Concurrency level of the sync request. Represents the number of request that 
+        /// can be sent in parallel.
+        #[arg(short, long, value_name = "CONCURRENCY", default_value = "1")]
+        concurrency: usize
     },
 }
 
@@ -113,8 +120,8 @@ async fn main() {
         } => {
             seed_store(data_directory, num_accounts, public_accounts_percentage).await;
         },
-        Command::BenchSyncRequest { data_directory, iterations } => {
-            bench_sync_request(data_directory, iterations).await;
+        Command::BenchSyncRequest { data_directory, iterations, concurrency } => {
+            bench_sync_request(data_directory, iterations, concurrency).await;
         },
     }
 }
@@ -573,34 +580,38 @@ async fn start_store(
 // ================================================================================================
 
 /// Sends multiple sync requests to the store and measures the performance.
-async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
+async fn bench_sync_request(data_directory: PathBuf, iterations: usize, concurrency: usize) {
     let start = Instant::now();
-
     let accounts_file = data_directory.join(ACCOUNTS_FILENAME);
 
-    let mut store_api_client = start_store(data_directory).await;
+    let store_api_client = start_store(data_directory).await;
 
-    // read the account ids from the file. If iterations > accounts_file, repeat the account ids
     let accounts = fs::read_to_string(accounts_file).await.unwrap();
     let accounts: Vec<&str> = accounts.lines().collect();
     let mut account_ids = accounts.iter().cycle();
 
-    // send sync requests and measure performance
-    let mut timers_accumulator = Vec::with_capacity(iterations);
-    for _ in 0..iterations {
-        // Take 3 account ids from the file and send a vec of them in the sync request
-        let account_id_1 = (*account_ids.next().unwrap()).to_string();
-        let account_id_2 = (*account_ids.next().unwrap()).to_string();
-        let account_id_3 = (*account_ids.next().unwrap()).to_string();
+    let tasks = stream::iter(0..iterations)
+        .map(|_| {
+            let mut api_client = store_api_client.clone();
+            
+            // take 3 account IDs
+            let account_id_1 = (*account_ids.next().unwrap()).to_string();
+            let account_id_2 = (*account_ids.next().unwrap()).to_string();
+            let account_id_3 = (*account_ids.next().unwrap()).to_string();
+            let account_batch = vec![account_id_1, account_id_2, account_id_3];
 
-        timers_accumulator.push(
-            send_sync_request(
-                &mut store_api_client,
-                vec![account_id_1, account_id_2, account_id_3],
-            )
-            .await,
-        );
-    }
+            tokio::spawn(async move {
+                send_sync_request(&mut api_client, account_batch).await
+            })
+        })
+        .buffer_unordered(concurrency) // ensures at most `concurrency` tasks run at the same time
+        .collect::<Vec<_>>()
+        .await;
+
+    let timers_accumulator: Vec<Duration> = tasks
+        .into_iter()
+        .map(|res| res.unwrap())
+        .collect();
 
     let elapsed = start.elapsed();
     println!("Total sync request took: {elapsed:?}");

@@ -31,3 +31,4 @@ rayon                     = { version = "1.5" }
 tokio                     = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tonic                     = { workspace = true }
 winterfell                = { version = "0.12" }
+futures                  = { version = "0.3" }
