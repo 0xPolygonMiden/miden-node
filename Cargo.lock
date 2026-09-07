@@ -4380,6 +4380,7 @@ dependencies = [
  "miden-testing",
  "miden-tx",
  "reqwest",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
  "tokio-util",
