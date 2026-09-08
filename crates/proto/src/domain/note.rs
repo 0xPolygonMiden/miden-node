@@ -191,6 +191,14 @@ impl TryFrom<proto::note::NoteId> for Word {
     }
 }
 
+impl TryFrom<proto::note::NoteId> for NoteId {
+    type Error = ConversionError;
+
+    fn try_from(note_id: proto::note::NoteId) -> Result<Self, Self::Error> {
+        Word::try_from(note_id).map(NoteId::from_raw)
+    }
+}
+
 impl From<&NoteId> for proto::note::NoteId {
     fn from(note_id: &NoteId) -> Self {
         Self { id: Some(note_id.into()) }
@@ -227,6 +235,45 @@ impl TryFrom<&proto::note::NoteInclusionInBlockProof> for (NoteId, NoteInclusion
                 inclusion_path,
             )?,
         ))
+    }
+}
+
+// COMMITTED NOTE
+// ================================================================================================
+
+impl From<(Note, NoteInclusionProof)> for proto::note::CommittedNote {
+    fn from((note, proof): (Note, NoteInclusionProof)) -> Self {
+        let inclusion_proof = Some((&note.id(), &proof).into());
+        Self { note: Some(note.into()), inclusion_proof }
+    }
+}
+
+impl TryFrom<proto::note::CommittedNote> for (Note, NoteInclusionProof) {
+    type Error = ConversionError;
+
+    fn try_from(committed: proto::note::CommittedNote) -> Result<Self, Self::Error> {
+        let decoder = committed.decoder();
+        let inclusion_proof = committed
+            .inclusion_proof
+            .as_ref()
+            .ok_or_else(|| {
+                ConversionError::missing_field::<proto::note::CommittedNote>("inclusion_proof")
+            })
+            .and_then(<(NoteId, NoteInclusionProof)>::try_from)
+            .context("inclusion_proof")?;
+        let (proven_id, proof) = inclusion_proof;
+        let note: Note = decode!(decoder, committed.note)?;
+
+        // The proof commits to a note ID. A mismatch means the response is inconsistent, and the
+        // proof does not prove the inclusion of this note.
+        if proven_id != note.id() {
+            return Err(ConversionError::message(format!(
+                "inclusion proof is for note {proven_id} but the note is {}",
+                note.id()
+            )));
+        }
+
+        Ok((note, proof))
     }
 }
 

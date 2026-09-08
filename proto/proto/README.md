@@ -11,6 +11,7 @@ The organization of the files is as follows:
 ```text
 rpc.proto
 remote_prover.proto
+funding_service.proto
 types/
 ├── primitives.proto
 └── xxx.proto
