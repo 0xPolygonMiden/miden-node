@@ -39,6 +39,10 @@ use miden_node_utils::limiter::{
     QueryParamStorageMapSlotLimit,
 };
 use miden_node_utils::shutdown::CancellationToken;
+use miden_node_utils::testing::{
+    deferred_transaction_fixture,
+    proof_with_missing_deferred_witness,
+};
 use miden_protocol::Word;
 use miden_protocol::account::{
     Account,
@@ -544,7 +548,7 @@ async fn rpc_server_does_not_require_fees_when_the_base_fee_is_zero() {
 }
 
 #[tokio::test]
-async fn rpc_server_rejects_deferred_transaction_proofs() {
+async fn rpc_server_rejects_invalid_deferred_transaction_proofs() {
     let store = TestStore::start().await;
     let genesis = store.genesis_commitment();
     let (account, account_patch) = build_test_account([0; 32]);
@@ -568,7 +572,58 @@ async fn rpc_server_rejects_deferred_transaction_proofs() {
 
     let status = service.submit_proven_tx(Request::new(request)).await.unwrap_err();
     assert_eq!(status.code(), tonic::Code::InvalidArgument);
-    assert!(status.message().contains("outstanding precompile obligation"));
+    assert!(status.message().contains("Invalid proof for transaction"));
+}
+
+#[tokio::test]
+async fn rpc_server_forwards_valid_deferred_proofs_and_rejects_missing_witnesses() {
+    let fixture = deferred_transaction_fixture().await;
+    let data_directory = new_tempdir();
+    State::bootstrap(fixture.genesis.clone().try_into().unwrap(), &data_directory).unwrap();
+    let (state, ..) = State::for_tests(&data_directory).await;
+    let submissions = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let (validator, _, _, _guard) =
+        start_validator(test_encryption_key(), Some(Arc::clone(&submissions))).await;
+    let block_producer = BlockProducerApi::new(
+        Arc::clone(&state),
+        state.committed_tip(),
+        BlockProducerApiConfig::default(),
+        CancellationToken::new(),
+    );
+    let service = RpcService::new(
+        state,
+        RpcBackend::sequencer(block_producer, ValidatorClients::new(vec![validator]).unwrap()),
+        None,
+        NonZeroUsize::new(1_000_000).unwrap(),
+        None,
+    );
+    let request = proto::transaction::ProvenTransaction {
+        transaction: fixture.transaction.to_bytes(),
+        sealed_transaction_inputs: None,
+    };
+    let status = service.submit_proven_tx(Request::new(request)).await.unwrap_err();
+    // The stub rejects submissions after it records them.
+    assert_eq!(status.code(), tonic::Code::Unimplemented, "{status}");
+    {
+        let submissions = submissions.lock().unwrap();
+        assert_eq!(submissions.len(), 1);
+        let forwarded = ProvenTransaction::read_from_bytes(&submissions[0].transaction).unwrap();
+        assert_eq!(forwarded.id(), fixture.transaction.id());
+        assert_eq!(forwarded.proof(), fixture.transaction.proof());
+    }
+
+    let invalid_tx = replace_transaction_proof(
+        &fixture.transaction,
+        proof_with_missing_deferred_witness(&fixture.transaction),
+    );
+    let request = proto::transaction::ProvenTransaction {
+        transaction: invalid_tx.to_bytes(),
+        sealed_transaction_inputs: None,
+    };
+    let status = service.submit_proven_tx(Request::new(request)).await.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(status.message().contains("Invalid proof for transaction"), "{status}");
+    assert_eq!(submissions.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -817,6 +872,7 @@ struct FixedValidator {
     encryption_key: proto::transaction::TransactionEncryptionKey,
     call_count: Arc<AtomicUsize>,
     last_accept: Arc<std::sync::Mutex<Option<String>>>,
+    submissions: Option<Arc<std::sync::Mutex<Vec<proto::transaction::ProvenTransaction>>>>,
 }
 
 #[tonic::async_trait]
@@ -874,11 +930,11 @@ impl validator_api::Status for FixedValidator {
 
 #[tonic::async_trait]
 impl validator_api::SubmitProvenTransaction for FixedValidator {
-    type Input = ();
+    type Input = proto::transaction::ProvenTransaction;
     type Output = ();
 
-    fn decode(_request: proto::transaction::ProvenTransaction) -> tonic::Result<Self::Input> {
-        Ok(())
+    fn decode(request: proto::transaction::ProvenTransaction) -> tonic::Result<Self::Input> {
+        Ok(request)
     }
 
     fn encode(output: Self::Output) -> tonic::Result<()> {
@@ -887,10 +943,13 @@ impl validator_api::SubmitProvenTransaction for FixedValidator {
 
     async fn handle(
         &self,
-        _input: Self::Input,
+        input: Self::Input,
         _metadata: &MetadataMap,
         _extensions: &Extensions,
     ) -> tonic::Result<Self::Output> {
+        if let Some(submissions) = &self.submissions {
+            submissions.lock().unwrap().push(input);
+        }
         Err(tonic::Status::unimplemented("not supported by the stub validator"))
     }
 }
@@ -946,6 +1005,7 @@ impl validator_api::BlockSubscription for FixedValidator {
 /// the stub's call counter and the last ACCEPT header it observed.
 async fn start_validator(
     encryption_key: proto::transaction::TransactionEncryptionKey,
+    submissions: Option<Arc<std::sync::Mutex<Vec<proto::transaction::ProvenTransaction>>>>,
 ) -> (
     ValidatorClient,
     Arc<AtomicUsize>,
@@ -958,6 +1018,7 @@ async fn start_validator(
     let last_accept = Arc::new(std::sync::Mutex::new(None));
     let service = FixedValidator {
         encryption_key,
+        submissions,
         call_count: Arc::clone(&call_count),
         last_accept: Arc::clone(&last_accept),
     };
@@ -1012,7 +1073,7 @@ fn test_encryption_key() -> proto::transaction::TransactionEncryptionKey {
 async fn full_node_with_validator_forwards_get_transaction_encryption_key() {
     let expected = test_encryption_key();
     let (validator, validator_call_count, _last_accept, _validator_server) =
-        start_validator(expected.clone()).await;
+        start_validator(expected.clone(), None).await;
     let local_store = TestStore::start().await;
     let full_node = RpcService::new(
         Arc::clone(&local_store.state),
@@ -1052,7 +1113,7 @@ async fn full_node_with_validator_forwards_get_transaction_encryption_key() {
 async fn full_node_forwards_get_transaction_encryption_key_to_source_rpc() {
     let expected = test_encryption_key();
     let (validator, validator_call_count, _last_accept, _validator_server) =
-        start_validator(expected.clone()).await;
+        start_validator(expected.clone(), None).await;
     let (source_rpc, _source_store, _source_server) =
         start_source_rpc(dummy_client::<NtxBuilderClient>(), validator).await;
     let local_store = TestStore::start().await;
@@ -1078,7 +1139,7 @@ async fn full_node_forwards_get_transaction_encryption_key_to_source_rpc() {
 async fn full_node_preserves_original_accept_metadata_when_forwarding_encryption_key() {
     let expected = test_encryption_key();
     let (validator, _validator_call_count, last_accept, _validator_server) =
-        start_validator(expected.clone()).await;
+        start_validator(expected.clone(), None).await;
     let (source_rpc, source_store, _source_server) =
         start_source_rpc(dummy_client::<NtxBuilderClient>(), validator).await;
     let local_store = TestStore::start().await;

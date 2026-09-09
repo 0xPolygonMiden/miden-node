@@ -62,13 +62,6 @@ impl proto::server::rpc_api::SubmitProvenTx for RpcService {
 
         debug!(target: LOG_TARGET, "Submitting transaction");
 
-        if !tx.proof().is_complete() {
-            return Err(Status::invalid_argument(format!(
-                "transaction {} proof has an outstanding precompile obligation",
-                tx.id()
-            )));
-        }
-
         // Verify the reference block is actually part of the chain.
         let reference_header = self
             .verify_reference_commitment(tx.ref_block_num(), tx.ref_block_commitment())
@@ -111,7 +104,9 @@ impl proto::server::rpc_api::SubmitProvenTx for RpcService {
         }
 
         let tx_id = tx.id();
-        let verification_outcome = spawn_blocking_in_current_span(move || {
+        // The verifier checks deferred witnesses and their binding to the VM proof. Batch proving
+        // settles the remaining precompile obligation.
+        let _verification_outcome = spawn_blocking_in_current_span(move || {
             TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL).verify(&tx).map_err(|err| {
                 Status::invalid_argument(format!(
                     "Invalid proof for transaction {}: {}",
@@ -124,11 +119,6 @@ impl proto::server::rpc_api::SubmitProvenTx for RpcService {
         .map_err(|err| {
             Status::internal(format!("transaction proof verification task failed: {err}"))
         })??;
-        if !verification_outcome.is_complete() {
-            return Err(Status::invalid_argument(format!(
-                "transaction {tx_id} proof has an outstanding precompile obligation"
-            )));
-        }
 
         match &self.backend {
             RpcBackend::Sequencer { block_producer, validators } => {
