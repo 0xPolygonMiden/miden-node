@@ -84,7 +84,7 @@ use url::Url;
 
 use crate::deploy::counter::create_counter_account;
 use crate::deploy::wallet::create_wallet_account;
-use crate::funding::{FaucetClient, FeeFunder, counter_funding_amount, wallet_funding_amount};
+use crate::funding::{FeeFunder, FundingClient, counter_funding_amount, wallet_funding_amount};
 use crate::{COMPONENT, LOG_TARGET};
 
 pub mod counter;
@@ -318,7 +318,7 @@ pub async fn create_and_deploy_accounts(
     submission_client: &TransactionSubmissionClient,
     prover: &LocalTransactionProver,
     fee_faucet_id: AccountId,
-    funding: Option<&FaucetClient>,
+    funding: Option<&FundingClient>,
 ) -> Result<DeployedMonitorAccounts> {
     info!(target: LOG_TARGET, "Creating fresh monitor accounts");
 
@@ -329,7 +329,7 @@ pub async fn create_and_deploy_accounts(
     let protocol_config = ProtocolConfig::current(AssetId::new_fungible(fee_faucet_id))
         .context("failed to construct the target protocol configuration")?;
     ensure_anchor_protocol_config_matches(&genesis_header, &protocol_config)?;
-    let mut funder = active_fee_funder(&genesis_header, funding, &rpc_client, fee_faucet_id)?;
+    let mut funder = active_fee_funder(&genesis_header, funding, fee_faucet_id)?;
     let verification_base_fee = genesis_header.fee_parameters().verification_base_fee();
 
     let (wallet_account, secret_key) = create_wallet_account()?;
@@ -402,26 +402,25 @@ pub async fn create_and_deploy_accounts(
     })
 }
 
-/// A fee-charging chain without a configured faucet. Permanent, so the NTX bootstrap aborts the
-/// monitor instead of retrying (see `run_ntx`).
+/// A fee-charging chain without a configured funding service. Permanent, so the NTX bootstrap
+/// aborts the monitor instead of retrying (see `run_ntx`).
 #[derive(Debug)]
 pub struct UnsupportedChainError;
 
 impl std::fmt::Display for UnsupportedChainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(
-            "this chain charges transaction fees: configure --faucet-url so the monitor can fund \
-             its accounts",
+            "this chain charges transaction fees: configure --funding-service-url so the \
+             monitor can fund its accounts",
         )
     }
 }
 
-/// Returns the faucet client on fee-charging chains, `None` on zero-fee chains.
-// TODO(#2450): Mainnet has no faucet service; it needs another funding path.
+/// Returns the funding service client on fee-charging chains, `None` on zero-fee chains.
 pub fn active_fee_funding<'a>(
     genesis_header: &BlockHeader,
-    funding: Option<&'a FaucetClient>,
-) -> Result<Option<&'a FaucetClient>> {
+    funding: Option<&'a FundingClient>,
+) -> Result<Option<&'a FundingClient>> {
     if genesis_header.fee_parameters().verification_base_fee() == 0 {
         return Ok(None);
     }
@@ -430,16 +429,15 @@ pub fn active_fee_funding<'a>(
 
 /// Returns a [`FeeFunder`] on fee-charging chains, `None` on zero-fee chains.
 ///
-/// The funder binds the faucet client to the given RPC client and to the fee faucet ID from the
-/// genesis fee parameters.
+/// The funder binds the funding service client to the fee faucet ID from the genesis fee
+/// parameters.
 pub fn active_fee_funder(
     genesis_header: &BlockHeader,
-    funding: Option<&FaucetClient>,
-    rpc_client: &RpcClient,
+    funding: Option<&FundingClient>,
     fee_faucet_id: AccountId,
 ) -> Result<Option<FeeFunder>> {
     let funder = active_fee_funding(genesis_header, funding)?
-        .map(|faucet| FeeFunder::new(faucet.clone(), rpc_client.clone(), fee_faucet_id));
+        .map(|client| FeeFunder::new(client.clone(), fee_faucet_id));
     Ok(funder)
 }
 
@@ -895,7 +893,7 @@ fn counter_creation_tx_args(counter_account: &Account) -> Result<TransactionArgs
 pub async fn build_probe_transaction_inputs(
     rpc_url: &Url,
     fee_faucet_id: AccountId,
-    funding: Option<&FaucetClient>,
+    funding: Option<&FundingClient>,
 ) -> Result<TransactionInputs> {
     let (wallet_account, _secret_key) = create_wallet_account()?;
 
@@ -905,7 +903,7 @@ pub async fn build_probe_transaction_inputs(
     let protocol_config = ProtocolConfig::current(AssetId::new_fungible(fee_faucet_id))
         .context("failed to construct the target protocol configuration")?;
     ensure_anchor_protocol_config_matches(&genesis_header, &protocol_config)?;
-    let mut funder = active_fee_funder(&genesis_header, funding, &rpc_client, fee_faucet_id)?;
+    let mut funder = active_fee_funder(&genesis_header, funding, fee_faucet_id)?;
     let verification_base_fee = genesis_header.fee_parameters().verification_base_fee();
     let counter_account =
         create_counter_account(wallet_account.id(), fee_faucet_id, verification_base_fee)?;
@@ -1176,15 +1174,15 @@ mod tests {
     use miden_protocol::transaction::PartialBlockchain;
     use miden_testing::MockChain;
 
-    use super::{DataStore, FaucetClient, MonitorDataStore, active_fee_funding};
+    use super::{DataStore, FundingClient, MonitorDataStore, active_fee_funding};
     use crate::deploy::wallet::create_wallet_account;
 
-    /// A fee-charging chain without a faucet must fail at startup; a zero-fee chain must not fund
-    /// even when a faucet is configured.
-    #[test]
-    fn fee_funding_is_required_exactly_on_fee_charging_chains() {
-        let funding = FaucetClient::new(
-            url::Url::parse("http://faucet.invalid").expect("static URL is valid"),
+    /// A fee-charging chain without the funding service must fail at startup; a zero-fee chain must
+    /// not fund even when the service is configured.
+    #[tokio::test]
+    async fn fee_funding_is_required_exactly_on_fee_charging_chains() {
+        let funding = FundingClient::new(
+            url::Url::parse("http://funding.invalid").expect("static URL is valid"),
             Duration::from_secs(1),
         );
 
@@ -1200,19 +1198,19 @@ mod tests {
         let genesis_header = fee_charging_chain.genesis_block_header();
 
         let active = active_fee_funding(&genesis_header, Some(&funding))
-            .expect("a fee-charging chain with a faucet is supported");
+            .expect("a fee-charging chain with the funding service is supported");
         assert!(active.is_some(), "funding must be active on a fee-charging chain");
 
         let err = active_fee_funding(&genesis_header, None)
-            .expect_err("a fee-charging chain without a faucet must be rejected");
+            .expect_err("a fee-charging chain without the funding service must be rejected");
         assert!(
-            format!("{err:#}").contains("--faucet-url"),
+            format!("{err:#}").contains("--funding-service-url"),
             "the error should point at the missing configuration, got: {err:#}"
         );
         // The bootstrap retry loop keys on this downcast to abort instead of retrying.
         assert!(
             err.downcast_ref::<super::UnsupportedChainError>().is_some(),
-            "the missing-faucet error must be typed as permanent"
+            "the missing-funding error must be typed as permanent"
         );
     }
 

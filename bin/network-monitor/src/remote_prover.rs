@@ -25,7 +25,7 @@ use url::Url;
 
 use crate::COMPONENT;
 use crate::deploy::UnsupportedChainError;
-use crate::funding::FaucetClient;
+use crate::funding::FundingClient;
 use crate::service::{Service, build_tls_client};
 use crate::service_status::{
     ProverTestOutcome,
@@ -97,8 +97,8 @@ pub struct ProbeSnapshot {
 struct ProbeSpawner {
     client: RemoteProverClient,
     rpc_url: Url,
-    /// Faucet access for funding the probe payload's fee payment on fee-charging chains.
-    funding: Option<FaucetClient>,
+    /// The funding service client for the probe payload's fee payment on fee-charging chains.
+    funding: Option<FundingClient>,
     interval: Duration,
     probe_tx: watch::Sender<ProbeSnapshot>,
     name: String,
@@ -145,7 +145,7 @@ impl ProverStatusService {
         prover_url: Url,
         rpc_url: Url,
         fee_faucet_id: Option<AccountId>,
-        funding: Option<FaucetClient>,
+        funding: Option<FundingClient>,
         interval: Duration,
         request_timeout: Duration,
         probe_interval: Duration,
@@ -414,7 +414,7 @@ async fn run_prover_test(
     mut client: RemoteProverClient,
     rpc_url: Url,
     fee_faucet_id: AccountId,
-    funding: Option<FaucetClient>,
+    funding: Option<FundingClient>,
     interval: Duration,
     probe_tx: watch::Sender<ProbeSnapshot>,
     name: String,
@@ -567,7 +567,7 @@ fn tonic_status_to_json(status: &tonic::Status) -> String {
 async fn generate_prover_test_payload(
     rpc_url: &Url,
     fee_faucet_id: AccountId,
-    funding: Option<&FaucetClient>,
+    funding: Option<&FundingClient>,
 ) -> anyhow::Result<proto::remote_prover::ProofRequest> {
     let tx_inputs =
         crate::deploy::build_probe_transaction_inputs(rpc_url, fee_faucet_id, funding).await?;
