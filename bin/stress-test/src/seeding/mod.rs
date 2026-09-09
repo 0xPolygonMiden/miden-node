@@ -230,7 +230,6 @@ pub async fn seed_store_with_readers(
         genesis_accounts,
         fee_params,
         1,
-        1,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         protocol_config,
     );

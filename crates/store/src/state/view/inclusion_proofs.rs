@@ -184,7 +184,6 @@ mod tests {
             vec![],
             test_fee_params(),
             1,
-            1,
             ValidatorConfig::new(vec![signer.public_key()], 1)
                 .expect("validator config should be valid"),
             test_protocol_config(),

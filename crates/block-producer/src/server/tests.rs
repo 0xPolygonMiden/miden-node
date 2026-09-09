@@ -104,7 +104,6 @@ fn bootstrap_store(path: &std::path::Path) {
         vec![],
         test_fee_params(),
         1,
-        1,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         test_protocol_config(),
     );

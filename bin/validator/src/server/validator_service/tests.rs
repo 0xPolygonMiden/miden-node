@@ -253,7 +253,6 @@ async fn setup_db_with_genesis(
     let genesis_state = GenesisState::new(
         vec![],
         test_fee_params(),
-        1,
         0,
         ValidatorConfig::new(vec![key.public_key()], 1).unwrap(),
         test_protocol_config(),
@@ -580,7 +579,6 @@ async fn commitment_mismatch_rejected() {
         vec![],
         test_fee_params(),
         1,
-        1,
         ValidatorConfig::new(vec![other_genesis_signer.public_key()], 1).unwrap(),
         test_protocol_config(),
     );
@@ -613,7 +611,6 @@ async fn replacement_commitment_mismatch_rejected() {
     let other_genesis_state = GenesisState::new(
         vec![],
         test_fee_params(),
-        1,
         1,
         ValidatorConfig::new(vec![other_genesis_signer.public_key()], 1).unwrap(),
         test_protocol_config(),

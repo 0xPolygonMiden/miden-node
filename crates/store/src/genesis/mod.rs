@@ -28,7 +28,6 @@ pub mod config;
 pub struct GenesisState {
     pub accounts: Vec<Account>,
     pub fee_parameters: FeeParameters,
-    pub version: u32,
     pub timestamp: u32,
     pub validator_config: ValidatorConfig,
     pub protocol_config: ProtocolConfig,
@@ -76,7 +75,6 @@ impl GenesisState {
     pub fn new(
         accounts: Vec<Account>,
         fee_parameters: FeeParameters,
-        version: u32,
         timestamp: u32,
         validator_config: ValidatorConfig,
         protocol_config: ProtocolConfig,
@@ -84,7 +82,6 @@ impl GenesisState {
         Self {
             accounts,
             fee_parameters,
-            version,
             timestamp,
             validator_config,
             protocol_config,

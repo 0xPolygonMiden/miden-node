@@ -83,7 +83,6 @@ fn parsing_yields_expected_default_values() -> TestResult {
 #[test]
 fn validator_set_is_committed_to_genesis() -> TestResult {
     let toml = r"
-version = 1
 timestamp = 1717344256
 
 [fee_parameters]
@@ -150,7 +149,6 @@ fn parsing_account_from_file() -> TestResult {
     // Create a genesis config TOML that references the account file
     let toml_content = r#"
 timestamp = 1717344256
-version   = 1
 
 [fee_parameters]
 verification_base_fee = 0
@@ -307,7 +305,6 @@ fn parsing_native_faucet_from_file() -> TestResult {
     // Create a genesis config TOML that references the faucet file
     let toml_content = r#"
 timestamp = 1717344256
-version   = 1
 
 native_faucet = "native_faucet.mac"
 
@@ -357,7 +354,6 @@ fn native_faucet_from_file_must_be_faucet_type() -> TestResult {
     // Create a genesis config TOML that tries to use a non-faucet as native faucet
     let toml_content = r#"
 timestamp = 1717344256
-version   = 1
 
 native_faucet = "not_a_faucet.mac"
 
@@ -386,7 +382,6 @@ fn missing_account_file_returns_error() {
     // Create a genesis config TOML that references a non-existent file
     let toml_content = r#"
 timestamp = 1717344256
-version   = 1
 
 [fee_parameters]
 verification_base_fee = 0

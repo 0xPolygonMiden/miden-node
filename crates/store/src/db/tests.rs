@@ -2025,7 +2025,6 @@ async fn genesis_with_account_assets() {
     let genesis_state = GenesisState::new(
         vec![account],
         test_fee_params(),
-        1,
         0,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         test_protocol_config(),
@@ -2098,7 +2097,6 @@ async fn genesis_with_account_storage_map() {
     let genesis_state = GenesisState::new(
         vec![account],
         test_fee_params(),
-        1,
         0,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         test_protocol_config(),
@@ -2164,7 +2162,6 @@ async fn genesis_with_account_assets_and_storage() {
     let genesis_state = GenesisState::new(
         vec![account],
         test_fee_params(),
-        1,
         0,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         test_protocol_config(),
@@ -2266,7 +2263,6 @@ async fn genesis_with_multiple_accounts() {
     let genesis_state = GenesisState::new(
         vec![account1, account2, account3],
         test_fee_params(),
-        1,
         0,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         test_protocol_config(),

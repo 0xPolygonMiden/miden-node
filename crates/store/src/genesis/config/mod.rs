@@ -73,7 +73,6 @@ struct GenericAccountConfig {
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GenesisConfig {
-    version: u32,
     timestamp: u32,
     /// Override the native faucet with a custom faucet account.
     ///
@@ -104,7 +103,6 @@ pub struct GenesisConfig {
 impl Default for GenesisConfig {
     fn default() -> Self {
         Self {
-            version: 1_u32,
             timestamp: u32::try_from(
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -160,7 +158,6 @@ impl GenesisConfig {
         validator_config: ValidatorConfig,
     ) -> Result<(GenesisState, AccountSecrets), GenesisConfigError> {
         let GenesisConfig {
-            version,
             timestamp,
             native_faucet,
             fee_parameters,
@@ -365,7 +362,6 @@ impl GenesisConfig {
             GenesisState {
                 fee_parameters,
                 accounts: all_accounts,
-                version,
                 timestamp,
                 validator_config,
                 protocol_config,
