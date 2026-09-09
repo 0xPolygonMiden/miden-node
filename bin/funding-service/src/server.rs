@@ -10,6 +10,7 @@ use miden_node_tracing::info;
 use miden_node_tracing::panic::{CatchPanicLayer, catch_panic_layer_fn};
 use miden_node_utils::shutdown::CancellationToken;
 use tokio::net::TcpListener;
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic_health::pb::health_server::{Health, HealthServer};
 use tonic_reflection::server;
@@ -18,7 +19,9 @@ use tower_http::trace::TraceLayer;
 
 use crate::LOG_TARGET;
 use crate::status::StatusSnapshot;
+use crate::worker::FundingRequest;
 
+mod request_funds;
 mod status;
 
 // FUNDING SERVICE RPC SERVER
@@ -26,15 +29,21 @@ mod status;
 
 /// The gRPC service of the funding service.
 ///
-/// The handlers do no chain work: `Status` reads the values the status refresher publishes.
+/// The handlers do no chain work: `RequestFunds` hands the request to the worker and waits for its
+/// answer, and `Status` reads the values the worker publishes.
 pub struct FundingRpcServer {
+    requests: mpsc::Sender<FundingRequest>,
     status: StatusSnapshot,
     request_timeout: Duration,
 }
 
 impl FundingRpcServer {
-    pub(crate) fn new(status: StatusSnapshot, request_timeout: Duration) -> Self {
-        Self { status, request_timeout }
+    pub(crate) fn new(
+        requests: mpsc::Sender<FundingRequest>,
+        status: StatusSnapshot,
+        request_timeout: Duration,
+    ) -> Self {
+        Self { requests, status, request_timeout }
     }
 
     /// Starts the gRPC server on the given listener.
@@ -97,10 +106,14 @@ pub(crate) mod tests {
 
     use super::*;
 
-    /// Builds a server for the handler tests.
-    pub(crate) fn test_server(max_amount: u64) -> FundingRpcServer {
+    /// Builds a server whose worker channel is held by the caller, so a test can assert on what the
+    /// handler queued without running a worker.
+    pub(crate) fn test_server(
+        max_amount: u64,
+    ) -> (FundingRpcServer, mpsc::Receiver<FundingRequest>) {
+        let (tx, rx) = mpsc::channel(4);
         let status = StatusSnapshot::new(FungibleAsset::mock_issuer(), max_amount);
 
-        FundingRpcServer::new(status, Duration::from_secs(1))
+        (FundingRpcServer::new(tx, status, Duration::from_secs(1)), rx)
     }
 }

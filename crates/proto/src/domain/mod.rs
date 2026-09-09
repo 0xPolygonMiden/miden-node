@@ -2,6 +2,7 @@ pub mod account;
 pub mod block;
 pub mod digest;
 pub mod encryption;
+pub mod funding;
 pub mod merkle;
 pub mod note;
 pub mod nullifier;

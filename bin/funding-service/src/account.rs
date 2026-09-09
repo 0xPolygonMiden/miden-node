@@ -3,8 +3,10 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use miden_protocol::Word;
 use miden_protocol::account::auth::AuthSecretKey;
 use miden_protocol::account::{AccountFile, AccountId, AccountType};
+use miden_protocol::crypto::dsa::falcon512_poseidon2::SecretKey;
 
 // FUNDER KEY
 // ================================================================================================
@@ -13,6 +15,8 @@ use miden_protocol::account::{AccountFile, AccountId, AccountType};
 #[derive(Clone, Debug)]
 pub struct FunderKey {
     account_id: AccountId,
+    secret_key: SecretKey,
+    code_commitment: Word,
 }
 
 impl FunderKey {
@@ -21,10 +25,13 @@ impl FunderKey {
         let account_file = AccountFile::read(path)
             .with_context(|| format!("failed to read the account file at {}", path.display()))?;
 
-        account_file
+        let secret_key = account_file
             .auth_secret_keys
             .iter()
-            .find(|key| matches!(key, AuthSecretKey::Falcon512Poseidon2(_)))
+            .find_map(|key| match key {
+                AuthSecretKey::Falcon512Poseidon2(secret_key) => Some(secret_key.clone()),
+                _ => None,
+            })
             .with_context(|| {
                 format!(
                     "the account file at {} holds no Falcon512Poseidon2 secret key",
@@ -40,11 +47,27 @@ impl FunderKey {
             account.id(),
         );
 
-        Ok(Self { account_id: account.id() })
+        Ok(Self {
+            account_id: account.id(),
+            secret_key,
+            code_commitment: account.code().commitment(),
+        })
     }
 
     pub fn account_id(&self) -> AccountId {
         self.account_id
+    }
+
+    pub fn secret_key(&self) -> &SecretKey {
+        &self.secret_key
+    }
+
+    /// The commitment to the account code in the account file.
+    ///
+    /// Compared against the code of the account on chain, so an account file from another network
+    /// fails at startup instead of as an opaque execution error.
+    pub fn code_commitment(&self) -> Word {
+        self.code_commitment
     }
 }
 
@@ -53,7 +76,6 @@ mod tests {
     use miden_protocol::ONE;
     use miden_protocol::account::auth::AuthScheme;
     use miden_protocol::account::{Account, AccountType};
-    use miden_protocol::crypto::dsa::falcon512_poseidon2::SecretKey;
     use miden_standards::account::auth::Approver;
     use miden_standards::account::wallets::create_basic_wallet;
     use rand::{RngExt, SeedableRng};
@@ -93,12 +115,14 @@ mod tests {
         let path = write_account_file(
             dir.path(),
             &account,
-            vec![AuthSecretKey::Falcon512Poseidon2(secret_key)],
+            vec![AuthSecretKey::Falcon512Poseidon2(secret_key.clone())],
         );
 
         let funder = FunderKey::load(&path).expect("a public wallet with a key should load");
 
         assert_eq!(funder.account_id(), account.id());
+        assert_eq!(funder.code_commitment(), account.code().commitment());
+        assert_eq!(funder.secret_key().public_key(), secret_key.public_key());
     }
 
     /// The service reads the funder's vault from the node, which is only possible for a public

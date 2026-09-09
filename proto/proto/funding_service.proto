@@ -5,17 +5,51 @@ package funding_service;
 import "google/protobuf/empty.proto";
 
 import "types/account.proto";
+import "types/note.proto";
+import "types/transaction.proto";
 
 // FUNDING SERVICE API
 // ================================================================================================
 
 // Sends the chain's native asset to an account.
 //
-// The service owns one wallet account which holds the native asset. The service does not
-// authenticate requests; an operator must restrict access to this API at the infrastructure level.
+// The service owns one wallet account which holds the native asset. Each request creates a private
+// P2ID note for the requested account.
 service Api {
     // Returns the status of the funding service.
     rpc Status(google.protobuf.Empty) returns (FundingServiceStatus) {}
+
+    // Creates a private P2ID note which holds `amount` base units of the native asset and targets
+    // `account_id`, then waits for the note to commit.
+    //
+    // Error codes:
+    // - `INVALID_ARGUMENT`: the account ID is malformed, or the amount is zero or above the maximum.
+    // - `FAILED_PRECONDITION`: the account cannot cover the amount plus the fee of one transaction.
+    // - `UNAVAILABLE`: the service is not synchronized, the node is unreachable, or it is stopping.
+    // - `ABORTED`: the transaction expired or the node rejected it. No note was created.
+    // - `RESOURCE_EXHAUSTED`: too many requests are queued.
+    rpc RequestFunds(RequestFundsRequest) returns (RequestFundsResponse) {}
+}
+
+// REQUEST FUNDS
+// ================================================================================================
+
+// Request message for funds.
+message RequestFundsRequest {
+    // The account which the note targets.
+    account.AccountId account_id = 1;
+
+    // The amount of the native asset, in base units.
+    uint64 amount = 2;
+}
+
+// Response message which holds the committed note.
+message RequestFundsResponse {
+    // The private P2ID note together with proof of its inclusion in a block.
+    note.CommittedNote note = 1;
+
+    // The transaction which created the note.
+    transaction.TransactionId transaction_id = 2;
 }
 
 // STATUS
@@ -35,6 +69,6 @@ message FundingServiceStatus {
     // The block number which the service is synchronized to.
     fixed32 chain_tip = 4;
 
-    // The largest amount which one funding request accepts, in base units.
+    // The largest amount which `RequestFunds` accepts, in base units.
     uint64 max_amount = 5;
 }

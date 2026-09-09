@@ -4,8 +4,11 @@
 
 ## Operation
 
-The service holds no chain state. It reads the funding account from the node, so a restart needs no recovery. Only the
-account file, which holds the account ID and its signing key, is on disk.
+The service holds no chain state. It reads the funding account from the node before every transaction, so a restart
+needs no recovery. Only the account file, which holds the account ID and its signing key, is on disk.
+
+Each request creates a private pay-to-ID note for the requested account. The service waits until the note is committed
+in a block, then returns the note together with proof of its inclusion.
 
 The `Status` endpoint reports the funding account, its balance, and the block that balance was read at. An operator
 alerts on that balance, because the service does not refill itself.

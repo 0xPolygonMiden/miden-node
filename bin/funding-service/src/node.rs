@@ -1,20 +1,29 @@
 //! Node access. The RPC handling is copied from the network monitor.
 
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use backon::ExponentialBuilder;
 use miden_node_proto::clients::{Builder, RpcClient};
 use miden_node_proto::domain::account::{AccountResponse, AccountVaultDetails, StorageMapEntries};
+use miden_node_proto::domain::encryption::{
+    TransactionInputsSealer,
+    TrustedTransactionEncryptionState,
+    verify_transaction_encryption_key,
+};
+use miden_node_proto::generated::note::NoteIdList;
 use miden_node_proto::generated::rpc::{
     AccountRequest as ProtoAccountRequest,
     BlockHeaderByNumberRequest,
     FinalityLevel,
     SyncChainMmrRequest,
 };
+use miden_node_proto::generated::transaction::ProvenTransaction as ProtoProvenTransaction;
 use miden_node_tracing::warn;
-use miden_node_utils::retry::Retryable;
+use miden_node_utils::retry::{self, Retryable};
 use miden_protocol::Word;
 use miden_protocol::account::{
     Account,
@@ -27,9 +36,12 @@ use miden_protocol::account::{
 };
 use miden_protocol::block::account_tree::AccountWitness;
 use miden_protocol::block::{BlockHeader, BlockNumber};
+use miden_protocol::crypto::dsa::ecdsa_k256_keccak::PublicKey as ValidatorPublicKey;
 use miden_protocol::crypto::merkle::mmr::{Forest, MmrDelta, MmrPeaks, PartialMmr};
-use miden_protocol::transaction::PartialBlockchain;
-use miden_protocol::utils::serde::Deserializable;
+use miden_protocol::note::{NoteId, NoteInclusionProof};
+use miden_protocol::transaction::{PartialBlockchain, ProvenTransaction};
+use miden_protocol::utils::serde::{Deserializable, Serializable};
+use tokio::sync::Mutex;
 use url::Url;
 
 use crate::COMPONENT;
@@ -37,21 +49,42 @@ use crate::COMPONENT;
 // RPC NODE CLIENT
 // ================================================================================================
 
-/// Reads chain state from the node's RPC API.
+/// Reads chain state from the node's RPC API and submits transactions to it.
 #[derive(Clone)]
 pub struct RpcNodeClient {
     rpc_client: RpcClient,
     genesis_header: BlockHeader,
+    trusted_validator_signing_keys: Arc<[ValidatorPublicKey]>,
+    sealer: Arc<Mutex<Option<TransactionInputsSealer>>>,
 }
 
 impl RpcNodeClient {
-    /// Connects to the node's RPC API.
-    pub async fn connect(rpc_url: &Url, timeout: Duration) -> Result<Self> {
+    /// Connects to the node's RPC API and verifies the attested transaction encryption key.
+    pub async fn connect(
+        rpc_url: &Url,
+        timeout: Duration,
+        trusted_validator_signing_keys: Vec<ValidatorPublicKey>,
+    ) -> Result<Self> {
+        anyhow::ensure!(
+            !trusted_validator_signing_keys.is_empty(),
+            "at least one trusted validator signing key is required to verify the transaction \
+             encryption key",
+        );
+
         let (mut rpc_client, _genesis_commitment) =
             create_genesis_aware_rpc_client(rpc_url, timeout).await?;
         let genesis_header = fetch_genesis_block_header(&mut rpc_client).await?;
 
-        Ok(Self { rpc_client, genesis_header })
+        let client = Self {
+            rpc_client,
+            genesis_header,
+            trusted_validator_signing_keys: Arc::from(trusted_validator_signing_keys),
+            sealer: Arc::new(Mutex::new(None)),
+        };
+        // Fetch and verify the encryption key eagerly so an untrusted key fails at startup.
+        client.sealer().await?;
+
+        Ok(client)
     }
 
     /// The genesis block header, which commits to the chain's fee parameters.
@@ -72,6 +105,159 @@ impl RpcNodeClient {
     ) -> Result<(Account, AccountWitness)> {
         fetch_public_account(&mut self.rpc_client.clone(), account_id, block_num).await
     }
+
+    /// The chain tip which bounds whether a transaction can still be committed.
+    pub async fn chain_tip(&self) -> Result<BlockNumber> {
+        let status = self
+            .rpc_client
+            .clone()
+            .status(())
+            .await
+            .context("failed to fetch the node status")?
+            .into_inner();
+
+        // The block producer's tip leads the store's tip, so it is the tighter bound.
+        let tip = status.block_producer.map_or(status.chain_tip, |producer| producer.chain_tip);
+
+        Ok(tip.into())
+    }
+
+    /// The inclusion proofs of the notes which are committed, keyed by note ID.
+    pub async fn committed_notes(
+        &self,
+        note_ids: &[NoteId],
+    ) -> Result<HashMap<NoteId, NoteInclusionProof>> {
+        let ids = note_ids.iter().map(|note_id| note_id.as_word().into()).collect();
+
+        let response = self
+            .rpc_client
+            .clone()
+            .get_notes_by_id(NoteIdList { ids })
+            .await
+            .context("failed to fetch the funding notes from RPC")?
+            .into_inner();
+
+        response
+            .notes
+            .iter()
+            .map(|committed| {
+                let proof = committed
+                    .inclusion_proof
+                    .as_ref()
+                    .context("committed note response is missing the inclusion proof")?;
+                <(NoteId, NoteInclusionProof)>::try_from(proof)
+                    .context("failed to convert the note inclusion proof")
+            })
+            .collect()
+    }
+
+    /// Seals and submits one proven transaction, and returns the block it was accepted at.
+    pub async fn submit(
+        &self,
+        proven_tx: &ProvenTransaction,
+        transaction_inputs: &[u8],
+    ) -> Result<BlockNumber> {
+        let transaction = proven_tx.to_bytes();
+        let tx_id = proven_tx.id();
+        let stale_key = AtomicBool::new(false);
+
+        let result = (|| {
+            let transaction = transaction.clone();
+            async {
+                if stale_key.swap(false, Ordering::Relaxed) {
+                    *self.sealer.lock().await = None;
+                }
+
+                let sealed = self
+                    .sealer()
+                    .await?
+                    .seal(tx_id, transaction_inputs)
+                    .context("failed to seal the transaction inputs")?;
+                self.rpc_client
+                    .clone()
+                    .submit_proven_tx(ProtoProvenTransaction {
+                        transaction,
+                        sealed_transaction_inputs: Some(sealed),
+                    })
+                    .await
+                    .context("failed to submit the proven transaction to RPC")
+            }
+        })
+        .retry(retry::constant(Duration::ZERO, Some(1)))
+        .when(|err: &anyhow::Error| {
+            err.downcast_ref::<tonic::Status>()
+                .is_some_and(|status| status.code() == tonic::Code::FailedPrecondition)
+        })
+        .notify(|status: &anyhow::Error, _| {
+            stale_key.store(true, Ordering::Relaxed);
+            warn!(
+                status,
+                target: COMPONENT,
+                "Transaction inputs rejected as stale, refreshing the encryption key and retrying",
+                transaction.id = tx_id
+            );
+        })
+        .await;
+
+        Ok(result?.into_inner().block_num.into())
+    }
+
+    /// The cached verified sealer. The attested key is fetched and checked on first use.
+    async fn sealer(&self) -> Result<TransactionInputsSealer> {
+        if let Some(sealer) = self.sealer.lock().await.clone() {
+            return Ok(sealer);
+        }
+
+        let key = self
+            .rpc_client
+            .clone()
+            .get_transaction_encryption_key(())
+            .await
+            .context("failed to fetch the transaction encryption key")?
+            .into_inner();
+        let verified = verify_transaction_encryption_key(
+            key,
+            TrustedTransactionEncryptionState::new(
+                self.genesis_header.commitment(),
+                &self.trusted_validator_signing_keys,
+            ),
+        )
+        .context("untrusted transaction encryption key")?;
+        let sealer = TransactionInputsSealer::new(verified);
+
+        let mut cached = self.sealer.lock().await;
+        if let Some(sealer) = cached.clone() {
+            return Ok(sealer);
+        }
+        *cached = Some(sealer.clone());
+        Ok(sealer)
+    }
+}
+
+// TRANSIENT ERRORS
+// ================================================================================================
+
+/// Returns `true` for gRPC status codes that indicate a transient transport- or server-side problem
+/// worth retrying. Content-rejection codes (`InvalidArgument`, `FailedPrecondition`, ...) reflect
+/// the request itself and are not retried.
+pub fn is_transient_status(status: &tonic::Status) -> bool {
+    matches!(
+        status.code(),
+        tonic::Code::Unavailable
+            | tonic::Code::DeadlineExceeded
+            | tonic::Code::Cancelled
+            | tonic::Code::Aborted
+            | tonic::Code::Unknown
+            | tonic::Code::Internal
+            | tonic::Code::ResourceExhausted,
+    )
+}
+
+/// Returns `true` when the error chain holds a transient gRPC status.
+pub fn is_transient_error(err: &anyhow::Error) -> bool {
+    err.chain()
+        .filter_map(|cause| cause.downcast_ref::<tonic::Status>())
+        .any(is_transient_status)
 }
 
 // RPC HELPERS
