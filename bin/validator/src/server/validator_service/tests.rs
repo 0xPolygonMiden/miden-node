@@ -10,6 +10,10 @@ use miden_node_proto::generated::{self as proto};
 use miden_node_proto::server::validator_api;
 use miden_node_store::{BlockStore, GenesisState};
 use miden_node_utils::fee::{test_fee_params, test_protocol_config};
+use miden_node_utils::testing::{
+    deferred_transaction_fixture,
+    proof_with_missing_deferred_witness,
+};
 use miden_protocol::Word;
 use miden_protocol::account::AccountUpdateDetails;
 use miden_protocol::account::auth::AuthScheme;
@@ -1221,9 +1225,9 @@ async fn failed_proof_verification_does_not_store_inputs() {
     tv.assert_transaction_absent(tx.id(), 0).await;
 }
 
-/// A deferred proof must not store the authenticated transaction inputs.
+/// An invalid deferred proof must not store the authenticated transaction inputs.
 #[tokio::test]
-async fn deferred_proof_does_not_store_inputs() {
+async fn invalid_deferred_proof_does_not_store_inputs() {
     let tv = TestValidator::new().await;
     let fixture = proven_transaction_fixture().await;
     let transaction = replace_transaction_proof(
@@ -1235,8 +1239,38 @@ async fn deferred_proof_does_not_store_inputs() {
     let status = tv.call_submit_proven_transaction(&transaction, sealed).await.unwrap_err();
 
     assert_eq!(status.code(), tonic::Code::InvalidArgument);
-    assert!(status.message().contains("outstanding precompile obligation"));
+    assert!(status.message().contains("proof verification"));
     tv.assert_transaction_absent(transaction.id(), 0).await;
+}
+
+#[tokio::test]
+async fn valid_deferred_proof_stores_inputs() {
+    let tv = TestValidator::new().await;
+    let fixture = deferred_transaction_fixture().await;
+    let tx = &fixture.transaction;
+    tv.call_submit_proven_transaction(tx, tv.seal(tx.id(), &fixture.inputs.to_bytes()))
+        .await
+        .unwrap();
+    assert!(tv.transaction_exists(tx.id()).await);
+    assert!(tv.server.db.load_private_record(tx.id()).await.unwrap().is_some());
+    assert_eq!(tv.validated_transaction_count().await, 1);
+}
+
+#[tokio::test]
+async fn missing_deferred_witness_does_not_store_inputs() {
+    let tv = TestValidator::new().await;
+    let fixture = deferred_transaction_fixture().await;
+    let tx = replace_transaction_proof(
+        &fixture.transaction,
+        proof_with_missing_deferred_witness(&fixture.transaction),
+    );
+    let status = tv
+        .call_submit_proven_transaction(&tx, tv.seal(tx.id(), &fixture.inputs.to_bytes()))
+        .await
+        .unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(status.message().contains("proof verification"), "got: {status}");
+    tv.assert_transaction_absent(tx.id(), 0).await;
 }
 
 /// A transaction that cannot be re-executed must not create a sealed record.
