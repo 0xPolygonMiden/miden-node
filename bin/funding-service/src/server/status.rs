@@ -47,7 +47,7 @@ mod tests {
 
     #[tokio::test]
     async fn status_reports_the_configured_account_and_the_published_balance() {
-        let server = test_server(500);
+        let (server, _rx) = test_server(500);
         server.status.update(1_234, 42.into());
 
         let status = funding_service_api::Status::handle(
@@ -74,7 +74,7 @@ mod tests {
     /// account it is waiting on.
     #[tokio::test]
     async fn status_is_served_while_the_service_is_not_ready() {
-        let server = test_server(500);
+        let (server, _rx) = test_server(500);
 
         funding_service_api::Status::handle(
             &server,
