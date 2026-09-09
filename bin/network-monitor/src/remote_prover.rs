@@ -11,7 +11,7 @@
 
 use std::time::{Duration, Instant};
 
-use miden_node_proto::clients::{RemoteProverClient, RemoteProverProxyStatusClient};
+use miden_node_proto::clients::{FundingClient, RemoteProverClient, RemoteProverProxyStatusClient};
 use miden_node_proto::generated as proto;
 use miden_node_tracing::{debug, miden_instrument, warn};
 use miden_protocol::utils::serde::Serializable;
@@ -24,7 +24,6 @@ use url::Url;
 
 use crate::COMPONENT;
 use crate::deploy::UnsupportedChainError;
-use crate::funding::FaucetClient;
 use crate::service::{Service, build_tls_client};
 use crate::service_status::{
     ProverTestOutcome,
@@ -91,8 +90,8 @@ pub struct ProbeSnapshot {
 struct ProbeSpawner {
     client: RemoteProverClient,
     rpc_url: Url,
-    /// Faucet access for funding the probe payload's fee payment on fee-charging chains.
-    funding: Option<FaucetClient>,
+    /// The funding service client for the probe payload's fee payment on fee-charging chains.
+    funding: Option<FundingClient>,
     interval: Duration,
     probe_tx: watch::Sender<ProbeSnapshot>,
     name: String,
@@ -136,7 +135,7 @@ impl ProverStatusService {
         name: String,
         prover_url: Url,
         rpc_url: Url,
-        funding: Option<FaucetClient>,
+        funding: Option<FundingClient>,
         interval: Duration,
         request_timeout: Duration,
         probe_interval: Duration,
@@ -376,7 +375,7 @@ const PAYLOAD_RETRY_DELAY: Duration = Duration::from_secs(30);
 async fn run_prover_test(
     mut client: RemoteProverClient,
     rpc_url: Url,
-    funding: Option<FaucetClient>,
+    funding: Option<FundingClient>,
     interval: Duration,
     probe_tx: watch::Sender<ProbeSnapshot>,
     name: String,
@@ -524,7 +523,7 @@ fn tonic_status_to_json(status: &tonic::Status) -> String {
 )]
 async fn generate_prover_test_payload(
     rpc_url: &Url,
-    funding: Option<&FaucetClient>,
+    funding: Option<&FundingClient>,
 ) -> anyhow::Result<proto::remote_prover::ProofRequest> {
     let tx_inputs = crate::deploy::build_probe_transaction_inputs(rpc_url, funding).await?;
     Ok(proto::remote_prover::ProofRequest {
