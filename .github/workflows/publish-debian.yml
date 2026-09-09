@@ -8,6 +8,7 @@ on:
         required: true
         type: choice
         options:
+          - funding-service
           - network-monitor
           - node
           - ntx-builder

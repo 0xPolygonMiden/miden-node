@@ -1,0 +1,16 @@
+[Unit]
+Description=Miden funding service
+Wants=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=exec
+Environment="OTEL_SERVICE_NAME=miden-funding-service"
+ExecStart=/usr/bin/miden-funding-service start
+WorkingDirectory=/opt/miden-funding-service
+User=miden-funding-service
+RestartSec=5
+Restart=always
+LimitCORE=infinity
