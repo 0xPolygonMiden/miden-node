@@ -4121,7 +4121,9 @@ name = "miden-node"
 version = "0.16.0-rc.5"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
+ "fs-err",
  "humantime",
  "miden-node-block-producer",
  "miden-node-proto",
@@ -4130,9 +4132,14 @@ dependencies = [
  "miden-node-tracing",
  "miden-node-utils",
  "miden-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
  "tokio",
  "tokio-stream",
  "tonic",
+ "tower",
  "url",
 ]
 
