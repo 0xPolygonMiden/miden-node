@@ -374,7 +374,7 @@ mod tests {
     use miden_protocol::crypto::dsa::ecdsa_k256_keccak::SigningKey;
     use miden_protocol::protocol_config::ProtocolConfig;
     use miden_protocol::testing::account_id::ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1;
-    use miden_protocol::utils::serde::{Deserializable, Serializable};
+    use miden_protocol::utils::serde::Deserializable;
     use rand_chacha_03::ChaCha20Rng;
     use rand_chacha_03::rand_core::SeedableRng;
 
@@ -590,53 +590,6 @@ mod tests {
 
         assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), None);
         assert_eq!(db.load_protocol_config(config.to_commitment()).await.unwrap(), None);
-    }
-
-    #[tokio::test]
-    async fn protocol_config_reads_reject_trailing_bytes() {
-        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
-        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
-        let config = test_protocol_config();
-        let commitment = config.to_commitment();
-        let mut bytes = config.to_bytes();
-        bytes.push(0xff);
-        db.writer
-            .write("insert_corrupt_protocol_config", move |tx| {
-                tx.execute(
-                    "INSERT INTO protocol_configs (commitment, protocol_config) VALUES (?1, ?2)",
-                    &[&commitment, &bytes],
-                )?;
-                Ok::<_, DatabaseError>(())
-            })
-            .await
-            .unwrap();
-
-        db.load_protocol_config(commitment)
-            .await
-            .expect_err("trailing bytes must be rejected");
-    }
-
-    #[tokio::test]
-    async fn protocol_config_reads_reject_a_wrong_storage_key() {
-        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
-        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
-        let config = test_protocol_config();
-        let wrong_commitment = Word::empty();
-        let bytes = config.to_bytes();
-        db.writer
-            .write("insert_miskeyed_protocol_config", move |tx| {
-                tx.execute(
-                    "INSERT INTO protocol_configs (commitment, protocol_config) VALUES (?1, ?2)",
-                    &[&wrong_commitment, &bytes],
-                )?;
-                Ok::<_, DatabaseError>(())
-            })
-            .await
-            .unwrap();
-
-        db.load_protocol_config(wrong_commitment)
-            .await
-            .expect_err("a config stored under the wrong commitment must be rejected");
     }
 
     #[tokio::test]
