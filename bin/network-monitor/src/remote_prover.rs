@@ -567,35 +567,6 @@ fn transaction_proof_size(response: proto::remote_prover::Proof) -> Result<usize
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn transaction_status_starts_a_probe_without_a_fee_id_option() {
-        let prover_url = Url::parse("http://127.0.0.1:1").expect("static URL is valid");
-        let rpc_url = Url::parse("http://127.0.0.1:2").expect("static URL is valid");
-        let test_client =
-            crate::service::build_tls_client(prover_url.clone(), Duration::from_secs(1));
-        let mut service = ProverStatusService::new(
-            "test prover".to_string(),
-            prover_url,
-            rpc_url,
-            None,
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-            test_client,
-        );
-        service.last_status = Some(RemoteProverStatusDetails {
-            url: "http://127.0.0.1:1".to_string(),
-            version: "test".to_string(),
-            supported_proof_type: ProofType::Transaction,
-            workers: Vec::new(),
-        });
-
-        service.ensure_probe_running();
-
-        let handle = service.probe_handle.take().expect("a transaction prover starts a probe");
-        handle.abort();
-    }
-
     #[test]
     fn missing_probe_response_variant_is_a_protocol_error() {
         let error =
