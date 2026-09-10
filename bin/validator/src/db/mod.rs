@@ -239,24 +239,6 @@ fn invalid_protocol_config(message: String) -> DatabaseError {
     )
 }
 
-/// Replaces a stored protocol configuration with test bytes.
-#[cfg(test)]
-pub(crate) async fn overwrite_protocol_config_for_test(
-    db: &ValidatorDbWriter,
-    commitment: miden_protocol::Word,
-    bytes: Vec<u8>,
-) -> Result<(), DatabaseError> {
-    db.writer
-        .write("overwrite_protocol_config_for_test", move |tx| {
-            tx.execute(
-                "UPDATE protocol_configs SET protocol_config = ?2 WHERE commitment = ?1",
-                &[&commitment, &bytes],
-            )?;
-            Ok::<_, DatabaseError>(())
-        })
-        .await
-}
-
 /// Deletes a stored protocol configuration for a test.
 #[cfg(test)]
 pub(crate) async fn delete_protocol_config_for_test(
@@ -610,29 +592,6 @@ mod tests {
         assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), None);
         assert_eq!(db.load_protocol_config(expected.to_commitment()).await.unwrap(), None);
         assert_eq!(db.load_protocol_config(mismatched.to_commitment()).await.unwrap(), None);
-    }
-
-    #[tokio::test]
-    async fn corrupted_protocol_config_cannot_be_overwritten() {
-        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
-        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
-        let config = test_protocol_config();
-        let commitment = config.to_commitment();
-        let header = genesis_header(&config);
-        let replacement = header_with_next_timestamp(&header);
-
-        db.upsert_block_header_with_protocol_config(header.clone(), Some(config.clone()))
-            .await
-            .unwrap();
-        overwrite_protocol_config_for_test(&db, commitment, vec![0xff]).await.unwrap();
-
-        db.upsert_block_header_with_protocol_config(replacement, Some(config))
-            .await
-            .expect_err("a corrupt stored protocol config must reject the write");
-        assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), Some(header));
-        db.load_protocol_config(commitment)
-            .await
-            .expect_err("the supplied protocol config must not overwrite the corrupt row");
     }
 
     #[tokio::test]

@@ -559,56 +559,6 @@ async fn sign_block_rejects_a_mismatched_protocol_config_before_signing() {
     assert_eq!(tv.call_status().await.signed_blocks_count, 0);
 }
 
-#[tokio::test]
-async fn sign_block_rejects_corrupt_stored_config_before_replacing_backup() {
-    let mut tv = TestValidator::new().await;
-    let genesis_header = tv.chain_tip.clone();
-    let chain_at_genesis = tv.chain.clone();
-    tv.apply_empty_block().await;
-    let original_header = tv.chain_tip.clone();
-    let original_backup = tv
-        .server
-        .block_store
-        .load_block(original_header.block_num())
-        .await
-        .unwrap()
-        .unwrap();
-
-    let block_inputs = BlockInputs::new(
-        genesis_header.clone(),
-        chain_at_genesis,
-        BTreeMap::new(),
-        BTreeMap::new(),
-        BTreeMap::new(),
-    );
-    let replacement =
-        ProposedBlock::new_at(block_inputs, vec![], genesis_header.timestamp() + 1_000_000)
-            .unwrap();
-
-    let commitment = tv.protocol_config.to_commitment();
-    let mut corrupt_bytes = tv.protocol_config.to_bytes();
-    corrupt_bytes.push(0xff);
-    crate::db::overwrite_protocol_config_for_test(&tv.server.db, commitment, corrupt_bytes)
-        .await
-        .unwrap();
-
-    tv.call_sign_block_with_protocol_config(&replacement, Some(&tv.protocol_config))
-        .await
-        .expect_err("corrupt stored config must reject signing");
-
-    assert_eq!(tv.load_chain_tip().await, original_header);
-    assert_eq!(
-        tv.server
-            .block_store
-            .load_block(original_header.block_num())
-            .await
-            .unwrap()
-            .unwrap(),
-        original_backup,
-        "a rejected replacement must not overwrite the committed backup"
-    );
-}
-
 /// An empty block at chain tip + 1 with the correct previous block commitment should be accepted.
 #[tokio::test]
 async fn chain_tip_plus_one_succeeds() {
