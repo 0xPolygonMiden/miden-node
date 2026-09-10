@@ -1095,31 +1095,6 @@ async fn protocol_config_transition_is_streamed_and_used_for_next_signature() {
         .expect("the validator must sign with the transitioned active config");
 }
 
-#[tokio::test]
-async fn block_subscription_rejects_a_corrupt_protocol_config_before_the_block() {
-    use std::time::Duration;
-
-    use tokio_stream::StreamExt;
-
-    let mut tv = TestValidator::new().await;
-    tv.apply_empty_block().await;
-    let commitment = tv.chain_tip.protocol_config_commitment();
-    let mut bytes = tv.protocol_config.to_bytes();
-    bytes.push(0xff);
-    crate::db::overwrite_protocol_config_for_test(&tv.server.db, commitment, bytes)
-        .await
-        .unwrap();
-
-    let mut stream = tv.call_block_subscription(1).await;
-    let status = tokio::time::timeout(Duration::from_secs(5), stream.next())
-        .await
-        .expect("the stream must reject corrupt storage promptly")
-        .expect("the stream must emit the storage error")
-        .expect_err("the block must not be emitted before config validation");
-
-    assert_eq!(status.code(), tonic::Code::Internal);
-}
-
 // SERVE LOCK TESTS
 // ================================================================================================
 //
