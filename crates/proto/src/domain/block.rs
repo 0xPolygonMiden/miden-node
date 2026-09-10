@@ -45,8 +45,6 @@ impl From<RangeInclusive<BlockNumber>> for proto::rpc::BlockRange {
 
 #[cfg(test)]
 mod tests {
-    use miden_protocol::Word;
-    use miden_protocol::protocol_config::NextProtocolConfig;
 
     use super::*;
 
