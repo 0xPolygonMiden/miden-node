@@ -1803,10 +1803,14 @@ async fn block_subscription_starts_with_matching_config() {
     assert_eq!(config.to_commitment(), block.header().protocol_config_commitment());
 }
 
-async fn config_block(store: &TestStore, config: &ProtocolConfig) -> SignedBlock {
+async fn next_block_with_protocol_config(
+    store: &TestStore,
+    config: &ProtocolConfig,
+) -> SignedBlock {
     use miden_protocol::block::{BlockBody, BlockHeader};
     use miden_protocol::crypto::merkle::mmr::Mmr;
     use miden_protocol::transaction::OrderedTransactionHeaders;
+
     let view = store.state.view();
     let (parent, _) = view.get_block_header(None, false).await.unwrap();
     let parent = parent.unwrap();
@@ -1818,6 +1822,7 @@ async fn config_block(store: &TestStore, config: &ProtocolConfig) -> SignedBlock
     let body =
         BlockBody::new(vec![], vec![], vec![], OrderedTransactionHeaders::new_unchecked(vec![]))
             .unwrap();
+
     let header = BlockHeader::new(
         parent.commitment(),
         parent.block_num().child(),
@@ -1840,6 +1845,7 @@ async fn protocol_config_transitions_follow_response_headers() {
     use miden_node_proto::domain::protocol_config::decode_protocol_config;
     use miden_protocol::block::BlockHeader;
     use miden_protocol::protocol_config::KernelConfig;
+
     let (mut client, _, mut store, _server) = start_rpc().await;
     let (genesis, _) = store.state.view().get_block_header(Some(0.into()), false).await.unwrap();
     let genesis = genesis.unwrap();
@@ -1858,10 +1864,12 @@ async fn protocol_config_transitions_follow_response_headers() {
         a.proof_verification().clone(),
     )
     .unwrap();
+
     for config in [&a, &b, &b, &a] {
-        let block = config_block(&store, config).await;
+        let block = next_block_with_protocol_config(&store, config).await;
         store.writer.apply_block(block, Some(config.clone())).await.unwrap();
     }
+
     for (height, included) in [(0, true), (1, false), (2, true), (3, true), (4, false)] {
         let response = client
             .sync_chain_mmr(proto::rpc::SyncChainMmrRequest {
@@ -1878,6 +1886,7 @@ async fn protocol_config_transitions_follow_response_headers() {
             assert_eq!(decode_protocol_config(response.protocol_config, &header).unwrap(), a);
         }
     }
+
     let proven = client
         .sync_chain_mmr(proto::rpc::SyncChainMmrRequest {
             current_client_block_height: 0,
@@ -1889,6 +1898,7 @@ async fn protocol_config_transitions_follow_response_headers() {
     let header: BlockHeader = proven.block_header.unwrap().try_into().unwrap();
     assert_eq!(header.block_num(), 0.into());
     assert_eq!(decode_protocol_config(proven.protocol_config, &header).unwrap(), a);
+
     for start in [1, 2] {
         let mut stream = client
             .block_subscription(proto::rpc::BlockSubscriptionRequest { block_from: start })
@@ -1916,6 +1926,7 @@ async fn protocol_config_transitions_follow_response_headers() {
 async fn invalid_protocol_config_does_not_advance_store() {
     use miden_protocol::asset::AssetId;
     use miden_protocol::testing::account_id::ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1;
+
     let mut store = TestStore::start().await;
     let (header, _) = store.state.view().get_block_header(None, false).await.unwrap();
     let header = header.unwrap();
@@ -1931,7 +1942,10 @@ async fn invalid_protocol_config_does_not_advance_store() {
     ))
     .unwrap();
     assert_ne!(config.to_commitment(), initial.to_commitment());
-    let block = config_block(&store, &config).await;
+
+    let block = next_block_with_protocol_config(&store, &config).await;
+
+    // Try applying without a matching protocol config
     assert!(store.writer.apply_block(block.clone(), None).await.is_err());
     assert!(store.writer.apply_block(block.clone(), Some(initial)).await.is_err());
     assert_eq!(store.state.committed_tip(), 0.into());
@@ -1945,6 +1959,8 @@ async fn invalid_protocol_config_does_not_advance_store() {
             .unwrap()
             .is_none()
     );
+
+    // Then apply with the matching protocol config
     store.writer.apply_block(block, Some(config.clone())).await.unwrap();
     assert_eq!(store.state.committed_tip(), 1.into());
     assert_eq!(
