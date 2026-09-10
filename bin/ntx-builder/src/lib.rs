@@ -81,7 +81,7 @@ mod bootstrap_tests {
         .unwrap();
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("genesis.dat");
-        std::fs::write(&path, genesis.to_bytes()).unwrap();
+        fs_err::write(&path, genesis.to_bytes()).unwrap();
         let decoded = read_genesis_block(&path).unwrap();
         assert_eq!(decoded.protocol_config(), genesis.protocol_config());
         let database_path = root.path().join("ntx.sqlite3");

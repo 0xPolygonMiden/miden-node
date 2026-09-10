@@ -4431,6 +4431,7 @@ dependencies = [
  "backon",
  "build-rs",
  "clap",
+ "fs-err",
  "futures",
  "humantime",
  "miden-node-db",
