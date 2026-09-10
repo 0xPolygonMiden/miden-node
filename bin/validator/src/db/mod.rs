@@ -451,6 +451,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn migration_preserves_headers_and_private_records() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("validator.sqlite3");
+        miden_node_db::migration::Migrator::builder()
+            .unwrap()
+            .push_sql("001_initial", include_str!("migrations/001_initial.sql"))
+            .unwrap()
+            .build()
+            .unwrap()
+            .bootstrap(&db_path)
+            .unwrap();
+
+        let config = test_protocol_config();
+        let header = genesis_header(&config);
+        let transaction_id = TransactionId::from_raw(Word::from([1u32, 2, 3, 4]));
+        let record = private_record(transaction_id, 1);
+        let db = open_with_pool_size(&db_path, NonZeroUsize::new(2).unwrap()).unwrap();
+        let stored_header = header.clone();
+        db.writer
+            .write("seed legacy header", move |tx| queries::upsert_block_header(tx, &stored_header))
+            .await
+            .unwrap();
+        db.insert_validated_private_transaction(record.clone()).await.unwrap();
+        drop(db);
+
+        assert!(load(db_path.clone()).await.is_err(), "the old schema requires migration");
+        migrate(&db_path).unwrap();
+        migrate(&db_path).expect("migration should also accept the latest schema");
+
+        let db = load(db_path).await.unwrap();
+        assert_eq!(db.load_chain_tip().await.unwrap(), Some(header.clone()));
+        assert_eq!(db.load_all_transactions().await.unwrap(), vec![record]);
+        assert_eq!(db.load_protocol_config(config.to_commitment()).await.unwrap(), None);
+
+        db.upsert_block_header_with_protocol_config(header, Some(config.clone()))
+            .await
+            .unwrap();
+        assert_eq!(db.load_protocol_config(config.to_commitment()).await.unwrap(), Some(config));
+    }
+
+    #[tokio::test]
     async fn setup_creates_database_that_load_accepts() {
         let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
         let db_path = temp_dir.path().join("validator.sqlite3");
