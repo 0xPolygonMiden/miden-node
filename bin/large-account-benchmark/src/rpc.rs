@@ -369,7 +369,7 @@ mod tests {
     use miden_protocol::testing::account_id::ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1;
     use miden_testing::MockChain;
 
-    use super::{decode_genesis_block_state, genesis_header_request};
+    use super::decode_genesis_block_state;
 
     #[test]
     fn genesis_response_rejects_mismatched_protocol_config() {

@@ -393,7 +393,6 @@ mod tests {
         miden_node_store::GenesisState::new(
             vec![],
             test_fee_params(),
-            1,
             0,
             ValidatorConfig::new(vec![SigningKey::new().public_key()], 1).unwrap(),
             config.clone(),

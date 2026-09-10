@@ -770,7 +770,6 @@ mod protocol_config_tests {
         GenesisState::new(
             Vec::new(),
             test_fee_params(),
-            1,
             0,
             mock_genesis_block().header().validator_config().clone(),
             test_protocol_config(),
