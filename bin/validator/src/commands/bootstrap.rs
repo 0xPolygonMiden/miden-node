@@ -135,7 +135,6 @@ mod tests {
         let genesis = GenesisState::new(
             Vec::new(),
             test_fee_params(),
-            1,
             0,
             ValidatorConfig::new(vec![key], 1).unwrap(),
             test_protocol_config(),

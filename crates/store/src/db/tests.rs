@@ -108,7 +108,6 @@ fn empty_genesis_block() -> crate::genesis::GenesisBlock {
     GenesisState::new(
         Vec::new(),
         test_fee_params(),
-        1,
         0,
         ValidatorConfig::new(vec![signer.public_key()], 1).unwrap(),
         test_protocol_config(),

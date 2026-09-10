@@ -698,7 +698,10 @@ async fn rpc_server_rejects_invalid_deferred_transaction_proofs() {
 async fn rpc_server_forwards_valid_deferred_proofs_and_rejects_missing_witnesses() {
     let fixture = deferred_transaction_fixture().await;
     let data_directory = new_tempdir();
-    State::bootstrap(fixture.genesis.clone().try_into().unwrap(), &data_directory).unwrap();
+    let genesis =
+        GenesisBlock::new(fixture.genesis.clone(), fixture.inputs.protocol_config().clone())
+            .unwrap();
+    State::bootstrap(genesis, &data_directory).unwrap();
     let (state, ..) = State::for_tests(&data_directory).await;
     let submissions = Arc::new(std::sync::Mutex::new(Vec::new()));
     let (validator, _, _, _guard) =

@@ -73,7 +73,6 @@ mod bootstrap_tests {
         let genesis = GenesisState::new(
             Vec::new(),
             test_fee_params(),
-            1,
             0,
             crate::test_utils::mock_genesis_block().header().validator_config().clone(),
             test_protocol_config(),
