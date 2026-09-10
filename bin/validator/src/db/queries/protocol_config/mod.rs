@@ -37,24 +37,10 @@ pub fn load(tx: &ReadTx<'_>, commitment: Word) -> Result<Option<ProtocolConfig>,
     Ok(Some(config))
 }
 
-/// Stores a supplied configuration or verifies that the committed configuration is already known.
-pub fn ensure(
-    tx: &WriteTx<'_>,
-    commitment: Word,
-    config: Option<&ProtocolConfig>,
-) -> Result<(), DatabaseError> {
-    if let Some(config) = config {
-        let calculated = config.to_commitment();
-        if calculated != commitment {
-            return Err(invalid_config(format!(
-                "protocol config commitment mismatch: expected {commitment}, got {calculated}"
-            )));
-        }
-        tx.execute(INSERT_SQL, &[&commitment, &config.to_bytes()])?;
-    }
-
-    load(tx, commitment)?
-        .ok_or_else(|| invalid_config(format!("protocol config {commitment} is not stored")))?;
+/// Inserts a protocol configuration if its commitment is not stored.
+pub fn insert(tx: &WriteTx<'_>, config: &ProtocolConfig) -> Result<(), DatabaseError> {
+    let commitment = config.to_commitment();
+    tx.execute(INSERT_SQL, &[&commitment, &config.to_bytes()])?;
     Ok(())
 }
 

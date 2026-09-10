@@ -1,3 +1,4 @@
+use std::io;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
@@ -210,15 +211,32 @@ impl ValidatorDbWriter {
     ) -> Result<(), DatabaseError> {
         self.writer
             .write("upsert_block_header_with_protocol_config", move |tx| {
-                queries::ensure_protocol_config(
-                    tx,
-                    header.protocol_config_commitment(),
-                    protocol_config.as_ref(),
-                )?;
+                let commitment = header.protocol_config_commitment();
+                if let Some(config) = protocol_config.as_ref() {
+                    let calculated = config.to_commitment();
+                    if calculated != commitment {
+                        return Err(invalid_protocol_config(format!(
+                            "protocol config commitment mismatch: expected {commitment}, got \
+                             {calculated}"
+                        )));
+                    }
+                    queries::insert_protocol_config(tx, config)?;
+                }
+
+                queries::load_protocol_config(tx, commitment)?.ok_or_else(|| {
+                    invalid_protocol_config(format!("protocol config {commitment} is not stored"))
+                })?;
                 queries::upsert_block_header(tx, &header)
             })
             .await
     }
+}
+
+fn invalid_protocol_config(message: String) -> DatabaseError {
+    DatabaseError::deserialization(
+        "ProtocolConfig",
+        io::Error::new(io::ErrorKind::InvalidData, message),
+    )
 }
 
 /// Replaces a stored protocol configuration with test bytes.
@@ -404,6 +422,23 @@ mod tests {
         .clone()
     }
 
+    fn header_with_next_timestamp(header: &BlockHeader) -> BlockHeader {
+        BlockHeader::new(
+            header.prev_block_commitment(),
+            header.block_num(),
+            header.chain_commitment(),
+            header.account_root(),
+            header.nullifier_root(),
+            header.note_root(),
+            header.tx_commitment(),
+            header.validator_config().clone(),
+            header.fee_parameters().clone(),
+            header.protocol_config_commitment(),
+            header.next_protocol_config().cloned(),
+            header.timestamp() + 1,
+        )
+    }
+
     #[test]
     fn migrate_rejects_missing_database() {
         let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
@@ -460,6 +495,44 @@ mod tests {
             .unwrap();
 
         assert_eq!(db.load_chain_tip().await.unwrap(), Some(header));
+        assert_eq!(db.load_protocol_config(config.to_commitment()).await.unwrap(), Some(config));
+    }
+
+    #[tokio::test]
+    async fn duplicate_supplied_protocol_config_is_accepted() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
+        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
+        let config = test_protocol_config();
+        let header = genesis_header(&config);
+        let replacement = header_with_next_timestamp(&header);
+
+        db.upsert_block_header_with_protocol_config(header.clone(), Some(config.clone()))
+            .await
+            .unwrap();
+        db.upsert_block_header_with_protocol_config(replacement.clone(), Some(config.clone()))
+            .await
+            .expect("a duplicate supplied protocol config should be accepted");
+
+        assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), Some(replacement));
+        assert_eq!(db.load_protocol_config(config.to_commitment()).await.unwrap(), Some(config));
+    }
+
+    #[tokio::test]
+    async fn known_protocol_config_can_be_omitted() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
+        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
+        let config = test_protocol_config();
+        let header = genesis_header(&config);
+        let replacement = header_with_next_timestamp(&header);
+
+        db.upsert_block_header_with_protocol_config(header.clone(), Some(config.clone()))
+            .await
+            .unwrap();
+        db.upsert_block_header_with_protocol_config(replacement.clone(), None)
+            .await
+            .expect("a stored protocol config should not need to be supplied again");
+
+        assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), Some(replacement));
         assert_eq!(db.load_protocol_config(config.to_commitment()).await.unwrap(), Some(config));
     }
 
@@ -543,6 +616,60 @@ mod tests {
         assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), None);
         assert_eq!(db.load_protocol_config(expected.to_commitment()).await.unwrap(), None);
         assert_eq!(db.load_protocol_config(mismatched.to_commitment()).await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn corrupted_protocol_config_cannot_be_overwritten() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
+        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
+        let config = test_protocol_config();
+        let commitment = config.to_commitment();
+        let header = genesis_header(&config);
+        let replacement = header_with_next_timestamp(&header);
+
+        db.upsert_block_header_with_protocol_config(header.clone(), Some(config.clone()))
+            .await
+            .unwrap();
+        overwrite_protocol_config_for_test(&db, commitment, vec![0xff]).await.unwrap();
+
+        db.upsert_block_header_with_protocol_config(replacement, Some(config))
+            .await
+            .expect_err("a corrupt stored protocol config must reject the write");
+        assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), Some(header));
+        db.load_protocol_config(commitment)
+            .await
+            .expect_err("the supplied protocol config must not overwrite the corrupt row");
+    }
+
+    #[tokio::test]
+    async fn block_header_insertion_failure_rolls_back_new_protocol_config() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temp directory");
+        let db = setup(temp_dir.path().join("validator.sqlite3")).await.unwrap();
+        let config = test_protocol_config();
+        let commitment = config.to_commitment();
+        let header = genesis_header(&config);
+
+        db.writer
+            .write("reject_block_header_inserts", |tx| {
+                tx.execute(
+                    "CREATE TRIGGER reject_block_header_insert
+                     BEFORE INSERT ON block_headers
+                     BEGIN
+                         SELECT RAISE(ABORT, 'block header insertion rejected');
+                     END;",
+                    &[],
+                )?;
+                Ok::<_, DatabaseError>(())
+            })
+            .await
+            .unwrap();
+
+        db.upsert_block_header_with_protocol_config(header.clone(), Some(config))
+            .await
+            .expect_err("a block header insertion failure must reject the transaction");
+
+        assert_eq!(db.load_block_header(header.block_num()).await.unwrap(), None);
+        assert_eq!(db.load_protocol_config(commitment).await.unwrap(), None);
     }
 
     #[tokio::test]
