@@ -63,7 +63,7 @@ impl proto::server::rpc_api::SyncChainMmr for RpcService {
                 _ => Status::internal(err.to_string()),
             })?;
 
-        let include_config = if current_client_block_height == BlockNumber::GENESIS {
+        let config_required = if current_client_block_height == BlockNumber::GENESIS {
             true
         } else if current_client_block_height == sync_target {
             false
@@ -76,7 +76,8 @@ impl proto::server::rpc_api::SyncChainMmr for RpcService {
                 start.ok_or_else(|| Status::internal("starting block header is missing"))?;
             start.protocol_config_commitment() != block_header.protocol_config_commitment()
         };
-        let protocol_config = if include_config {
+
+        let protocol_config = if config_required {
             Some(super::load_protocol_config(&view, &block_header).await?.into())
         } else {
             None
