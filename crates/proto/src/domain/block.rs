@@ -367,6 +367,7 @@ impl From<RangeInclusive<BlockNumber>> for proto::rpc::BlockRange {
 mod tests {
     use miden_protocol::Word;
     use miden_protocol::protocol_config::NextProtocolConfig;
+
     use super::*;
 
     fn range(from: u32, to: u32) -> proto::rpc::BlockRange {
