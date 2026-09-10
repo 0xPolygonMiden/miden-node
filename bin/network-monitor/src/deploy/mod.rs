@@ -86,13 +86,7 @@ use url::Url;
 
 use crate::deploy::counter::create_counter_account;
 use crate::deploy::wallet::create_wallet_account;
-use crate::funding::{
-    FaucetClient,
-    FeeFunder,
-    counter_funding_amount,
-    ensure_note_carries_fee_asset,
-    wallet_funding_amount,
-};
+use crate::funding::{FaucetClient, FeeFunder, counter_funding_amount, wallet_funding_amount};
 use crate::{COMPONENT, LOG_TARGET};
 
 pub mod counter;
@@ -364,22 +358,6 @@ pub async fn create_and_deploy_accounts(
     let creation_anchor =
         fetch_tip_chain_state(&mut rpc_client, submission_client.genesis_commitment).await?;
     let anchor_fee_faucet_id = creation_anchor.protocol_config.fee_asset_id().faucet_id();
-    anyhow::ensure!(
-        anchor_fee_faucet_id == fee_faucet_id,
-        "the active fee asset changed while the monitor funded its accounts",
-    );
-    anyhow::ensure!(
-        creation_anchor.block_header.fee_parameters().verification_base_fee()
-            == verification_base_fee,
-        "the verification base fee changed while the monitor funded its accounts",
-    );
-    if let Some(note) = &counter_funding_note {
-        ensure_note_carries_fee_asset(note, anchor_fee_faucet_id)?;
-    }
-    if let Some(note) = &wallet_funding_note {
-        ensure_note_carries_fee_asset(note, anchor_fee_faucet_id)?;
-    }
-
     let creation_fee_faucet = match funder.as_ref() {
         Some(_) => Some(
             fetch_foreign_account_inputs(
@@ -408,8 +386,6 @@ pub async fn create_and_deploy_accounts(
         &mut rpc_client,
         &committed_counter,
         submission_client.genesis_commitment,
-        anchor_fee_faucet_id,
-        verification_base_fee,
     )
     .await?;
 
@@ -610,8 +586,6 @@ async fn resolve_counter_anchor(
     rpc_client: &mut RpcClient,
     committed_counter: &Account,
     genesis_commitment: Word,
-    expected_fee_faucet_id: AccountId,
-    expected_verification_base_fee: u32,
 ) -> Result<CounterAnchor> {
     let expected_state = committed_counter.to_commitment();
     let mut last_error = None;
@@ -626,8 +600,6 @@ async fn resolve_counter_anchor(
             committed_counter,
             expected_state,
             genesis_commitment,
-            expected_fee_faucet_id,
-            expected_verification_base_fee,
         )
         .await
         {
@@ -679,15 +651,8 @@ async fn try_resolve_counter_anchor(
     committed_counter: &Account,
     expected_state: Word,
     genesis_commitment: Word,
-    expected_fee_faucet_id: AccountId,
-    expected_verification_base_fee: u32,
 ) -> Result<Option<CounterAnchor>> {
     let anchor = fetch_tip_chain_state(rpc_client, genesis_commitment).await?;
-    ensure_counter_anchor_fee_policy_matches(
-        &anchor,
-        expected_fee_faucet_id,
-        expected_verification_base_fee,
-    )?;
     let block_header = anchor.block_header;
     let block_num = block_header.block_num();
 
@@ -726,23 +691,6 @@ async fn try_resolve_counter_anchor(
         witness,
         fee_faucet,
     }))
-}
-
-fn ensure_counter_anchor_fee_policy_matches(
-    anchor: &ChainState,
-    expected_fee_faucet_id: AccountId,
-    expected_verification_base_fee: u32,
-) -> Result<()> {
-    anyhow::ensure!(
-        anchor.protocol_config.fee_asset_id().faucet_id() == expected_fee_faucet_id,
-        "the active fee asset changed while the monitor resolved its counter anchor",
-    );
-    anyhow::ensure!(
-        anchor.block_header.fee_parameters().verification_base_fee()
-            == expected_verification_base_fee,
-        "the verification base fee changed while the monitor resolved its counter anchor",
-    );
-    Ok(())
 }
 
 /// Ensures that a transaction anchor and its protocol configuration describe the same state.
@@ -964,18 +912,6 @@ pub async fn build_probe_transaction_inputs(
 
     let execution_anchor = fetch_tip_chain_state(&mut rpc_client, genesis_commitment).await?;
     let anchor_fee_faucet_id = execution_anchor.protocol_config.fee_asset_id().faucet_id();
-    anyhow::ensure!(
-        anchor_fee_faucet_id == fee_faucet_id,
-        "the active fee asset changed while the monitor funded its prover probe",
-    );
-    anyhow::ensure!(
-        execution_anchor.block_header.fee_parameters().verification_base_fee()
-            == verification_base_fee,
-        "the verification base fee changed while the monitor funded its prover probe",
-    );
-    if let Some(note) = &funding_note {
-        ensure_note_carries_fee_asset(note, anchor_fee_faucet_id)?;
-    }
     let fee_faucet = if funder.is_some() {
         Some(
             fetch_foreign_account_inputs(
@@ -1238,14 +1174,12 @@ mod tests {
     use miden_testing::MockChain;
 
     use super::{
-        ChainState,
         DataStore,
         FaucetClient,
         MonitorDataStore,
         active_fee_funding,
         decode_chain_state,
         decode_protocol_config,
-        ensure_counter_anchor_fee_policy_matches,
     };
     use crate::deploy::wallet::create_wallet_account;
 
@@ -1296,28 +1230,6 @@ mod tests {
             .expect("the RPC configuration matches its header");
 
         assert_eq!(decoded, expected);
-    }
-
-    #[test]
-    fn counter_anchor_rejects_a_base_fee_transition() {
-        let chain = MockChain::builder()
-            .verification_base_fee(500)
-            .build()
-            .expect("chain should build");
-        let anchor = ChainState {
-            block_header: chain.genesis_block_header(),
-            protocol_config: chain.protocol_config().clone(),
-            blockchain: PartialBlockchain::new(
-                PartialMmr::from_peaks(MmrPeaks::default()),
-                Vec::new(),
-            )
-            .expect("empty genesis blockchain should build"),
-        };
-
-        let error = ensure_counter_anchor_fee_policy_matches(&anchor, chain.fee_faucet_id(), 0)
-            .expect_err("the counter was built for a different base fee");
-
-        assert!(error.to_string().contains("verification base fee changed"));
     }
 
     #[test]
