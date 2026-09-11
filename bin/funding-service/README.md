@@ -10,7 +10,8 @@ needs no recovery. Only the account file, which holds the account ID and its sig
 Each request creates a private pay-to-ID note for the requested account. The service waits until the note is committed
 in a block, then returns the note together with proof of its inclusion.
 
-The account is refilled by sending it a public pay-to-ID note that holds the native asset. The service scans for those notes and consumes them on its own.
+The account is refilled by sending it a public pay-to-ID note that holds the native asset. The service scans for those
+notes and consumes them on its own.
 
 The service also needs a trusted genesis block file, from `--genesis`. The genesis block names the chain's fee asset,
 which the node's RPC API does not serve. The service refuses to start when the genesis block commits to a different
