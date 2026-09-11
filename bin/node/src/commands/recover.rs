@@ -556,7 +556,7 @@ mod tests {
     #[tokio::test]
     async fn coalescer_rejects_protocol_config_disagreement() {
         let signers = signers(2);
-        let validators = validator_keys(&signers);
+        let validators = validator_config(&signers);
         let (first_config, second_config) = protocol_configs();
         let parent = BlockHeader::new(
             Word::empty(),
