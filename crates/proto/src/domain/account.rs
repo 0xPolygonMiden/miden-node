@@ -135,6 +135,17 @@ impl TryFrom<proto::account::AccountStorageHeader> for AccountStorageHeader {
     }
 }
 
+// REGISTER ACCOUNT REQUEST
+// ================================================================================================
+
+impl Debug for proto::rpc::RegisterAccountRequest {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RegisterAccountRequest")
+            .field("account_id", &self.account_id)
+            .finish_non_exhaustive()
+    }
+}
+
 // ACCOUNT REQUEST
 // ================================================================================================
 

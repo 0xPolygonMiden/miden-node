@@ -58,7 +58,7 @@ fn main() -> miette::Result<()> {
 /// destination directory.
 fn generate_bindings(file_descriptors: &FileDescriptorSet, dst_dir: &Path) -> miette::Result<()> {
     let mut prost_config = tonic_prost_build::Config::new();
-    prost_config.skip_debug(["AccountId", "Digest"]);
+    prost_config.skip_debug(["AccountId", "Digest", "RegisterAccountRequest"]);
 
     // Generate the stub of the user facing server from its proto file
     tonic_prost_build::configure()
