@@ -88,25 +88,29 @@ impl grpc::server::validator_api::BlockSubscription for ValidatorService {
                         Ok(Some(bytes)) => match SignedBlock::read_from_bytes(&bytes) {
                             Ok(signed_block) => {
                                 let commitment = signed_block.header().protocol_config_commitment();
-                                match db.load_protocol_config(commitment).await {
-                                    Ok(Some(config)) => {
-                                        let protocol_config = (previous_config_commitment
-                                            != Some(commitment))
-                                        .then(|| (&config).into());
-                                        previous_config_commitment = Some(commitment);
-                                        Ok(BlockSubscriptionResponse {
-                                            block: Some(signed_block.into()),
-                                            committed_chain_tip: committed_tip.as_u32(),
-                                            protocol_config,
-                                        })
-                                    },
-                                    Ok(None) => Err(tonic::Status::internal(format!(
-                                        "protocol config {commitment} not found"
-                                    ))),
-                                    Err(err) => Err(tonic::Status::internal(
-                                        err.as_report_context("failed to load protocol config"),
-                                    )),
-                                }
+                                let protocol_config = if previous_config_commitment
+                                    == Some(commitment)
+                                {
+                                    Ok(None)
+                                } else {
+                                    match db.load_protocol_config(commitment).await {
+                                        Ok(Some(config)) => {
+                                            previous_config_commitment = Some(commitment);
+                                            Ok(Some((&config).into()))
+                                        },
+                                        Ok(None) => Err(tonic::Status::internal(format!(
+                                            "protocol config {commitment} not found"
+                                        ))),
+                                        Err(err) => Err(tonic::Status::internal(
+                                            err.as_report_context("failed to load protocol config"),
+                                        )),
+                                    }
+                                };
+                                protocol_config.map(|protocol_config| BlockSubscriptionResponse {
+                                    block: Some(signed_block.into()),
+                                    committed_chain_tip: committed_tip.as_u32(),
+                                    protocol_config,
+                                })
                             },
                             Err(err) => Err(tonic::Status::internal(
                                 err.as_report_context("failed to decode backed-up block"),
