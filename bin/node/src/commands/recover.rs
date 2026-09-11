@@ -15,7 +15,7 @@ use miden_protocol::block::{
     BlockNumber,
     BlockSignatures,
     SignedBlock,
-    ValidatorKeys,
+    ValidatorConfig,
 };
 use miden_protocol::crypto::dsa::ecdsa_k256_keccak::Signature;
 use miden_protocol::utils::serde::Deserializable;
@@ -300,7 +300,8 @@ async fn next_coalesced_block(
     }
     let (header, body) = first_parts.context("at least one validator stream is required")?;
 
-    let signatures = coalesce_signatures(signatures, header.commitment(), parent.validator_keys())?;
+    let signatures =
+        coalesce_signatures(signatures, header.commitment(), parent.validator_config())?;
     let block = SignedBlock::new_unchecked(header, body, signatures);
 
     // Fully validate the reconstructed block before it is persisted, including verifying the
@@ -319,18 +320,18 @@ async fn next_coalesced_block(
 fn coalesce_signatures(
     mut signatures: Vec<Signature>,
     block_commitment: Word,
-    validator_keys: &ValidatorKeys,
+    validator_config: &ValidatorConfig,
 ) -> anyhow::Result<BlockSignatures> {
     anyhow::ensure!(
-        signatures.len() == validator_keys.len(),
+        signatures.len() == validator_config.len(),
         "collected {} signatures but the validator set has {} keys; the provided validator URLs \
          must cover the full validator set",
         signatures.len(),
-        validator_keys.len(),
+        validator_config.len(),
     );
 
-    let mut ordered = Vec::with_capacity(validator_keys.len());
-    for (position, key) in validator_keys.as_keys().iter().enumerate() {
+    let mut ordered = Vec::with_capacity(validator_config.len());
+    for (position, key) in validator_config.keys().iter().enumerate() {
         let matched = signatures
             .iter()
             .position(|signature| signature.verify(block_commitment, key))
@@ -349,7 +350,7 @@ fn coalesce_signatures(
 #[cfg(test)]
 mod tests {
     use miden_protocol::Word;
-    use miden_protocol::block::ValidatorKeys;
+    use miden_protocol::block::ValidatorConfig;
     use miden_protocol::crypto::dsa::ecdsa_k256_keccak::SigningKey;
 
     use super::coalesce_signatures;
@@ -358,15 +359,19 @@ mod tests {
         (0..count).map(|_| SigningKey::new()).collect()
     }
 
-    fn validator_keys(signers: &[SigningKey]) -> ValidatorKeys {
-        ValidatorKeys::new(signers.iter().map(SigningKey::public_key).collect()).unwrap()
+    fn validator_config(signers: &[SigningKey]) -> ValidatorConfig {
+        ValidatorConfig::new(
+            signers.iter().map(SigningKey::public_key).collect(),
+            u16::try_from(signers.len()).unwrap(),
+        )
+        .unwrap()
     }
 
     #[test]
     fn signatures_are_ordered_against_the_validator_set() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         // Collect the signatures in reverse order to prove they get reordered.
         let shuffled = signers.iter().rev().map(|signer| signer.sign(commitment)).collect();
@@ -379,7 +384,7 @@ mod tests {
     fn signature_count_mismatch_is_rejected() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         let missing_one = signers.iter().take(2).map(|signer| signer.sign(commitment)).collect();
 
@@ -391,7 +396,7 @@ mod tests {
     fn duplicate_validator_signature_is_rejected() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         // Two streams served by the same validator: its signature appears twice and the third
         // validator's signature is missing.
@@ -409,7 +414,7 @@ mod tests {
     fn foreign_signature_is_rejected() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         // One signature comes from a key outside the validator set.
         let with_foreign = vec![

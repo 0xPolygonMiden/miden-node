@@ -10,13 +10,13 @@ use miden_protocol::block::{
     BlockSignatures,
     FeeParameters,
     SignedBlock,
-    ValidatorKeys,
+    ValidatorConfig,
 };
 use miden_protocol::crypto::merkle::mmr::{Forest, MmrPeaks};
 use miden_protocol::crypto::merkle::smt::Smt;
-use miden_protocol::errors::AccountError;
 use miden_protocol::note::Nullifier;
-use miden_protocol::transaction::{OrderedTransactionHeaders, TransactionKernel};
+use miden_protocol::protocol_config::ProtocolConfig;
+use miden_protocol::transaction::OrderedTransactionHeaders;
 
 pub mod config;
 
@@ -28,9 +28,9 @@ pub mod config;
 pub struct GenesisState {
     pub accounts: Vec<Account>,
     pub fee_parameters: FeeParameters,
-    pub version: u32,
     pub timestamp: u32,
-    pub validator_keys: ValidatorKeys,
+    pub validator_config: ValidatorConfig,
+    pub protocol_config: ProtocolConfig,
 }
 
 /// A type-safety wrapper ensuring that genesis block data can only be created from [`GenesisState`]
@@ -75,16 +75,16 @@ impl GenesisState {
     pub fn new(
         accounts: Vec<Account>,
         fee_parameters: FeeParameters,
-        version: u32,
         timestamp: u32,
-        validator_keys: ValidatorKeys,
+        validator_config: ValidatorConfig,
+        protocol_config: ProtocolConfig,
     ) -> Self {
         Self {
             accounts,
             fee_parameters,
-            version,
             timestamp,
-            validator_keys,
+            validator_config,
+            protocol_config,
         }
     }
 
@@ -97,7 +97,7 @@ impl GenesisState {
         let accounts: Vec<BlockAccountUpdate> = self
             .accounts
             .iter()
-            .map(|account| {
+            .map(|account| -> anyhow::Result<_> {
                 let account_update_details = if account.id().is_private() {
                     AccountUpdateDetails::Private
                 } else {
@@ -108,9 +108,9 @@ impl GenesisState {
                     account.id(),
                     account.to_commitment(),
                     account_update_details,
-                ))
+                )?)
             })
-            .collect::<Result<Vec<_>, AccountError>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Convert account updates to SMT entries using account_id_to_smt_key
         let smt_entries = accounts.iter().map(|update| {
@@ -133,20 +133,20 @@ impl GenesisState {
 
         let empty_transactions = OrderedTransactionHeaders::new_unchecked(Vec::new());
 
-        let validator_keys = self.validator_keys;
+        let validator_config = self.validator_config;
 
         let header = BlockHeader::new(
-            self.version,
             Word::empty(),
             BlockNumber::GENESIS,
             MmrPeaks::new(Forest::empty(), Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             empty_nullifier_tree.root(),
             empty_block_note_tree.root(),
-            Word::empty(),
-            TransactionKernel.to_commitment(),
-            validator_keys,
+            empty_transactions.commitment(),
+            validator_config,
             self.fee_parameters,
+            self.protocol_config.to_commitment(),
+            None,
             self.timestamp,
         );
 

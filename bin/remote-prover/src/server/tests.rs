@@ -348,7 +348,7 @@ async fn transaction_proof_is_correct() {
     let response = ProvenTransaction::read_from_bytes(&response.payload).unwrap();
 
     assert_eq!(response.id(), tx.id());
-    TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL).verify(&response).unwrap();
+    let _ = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL).verify(&response).unwrap();
 
     server.abort();
 }

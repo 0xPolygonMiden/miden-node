@@ -104,7 +104,9 @@ impl proto::server::rpc_api::SubmitProvenTx for RpcService {
         }
 
         let tx_id = tx.id();
-        spawn_blocking_in_current_span(move || {
+        // The verifier checks deferred witnesses and their binding to the VM proof. Batch proving
+        // settles the remaining precompile obligation.
+        let _verification_outcome = spawn_blocking_in_current_span(move || {
             TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL).verify(&tx).map_err(|err| {
                 Status::invalid_argument(format!(
                     "Invalid proof for transaction {}: {}",
