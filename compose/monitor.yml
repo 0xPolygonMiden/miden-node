@@ -4,6 +4,8 @@ services:
     image: ${MIDEN_NETWORK_MONITOR_IMAGE:-miden-network-monitor}
     pull_policy: missing
     depends_on:
+      funding-service:
+        condition: service_started
       otel-collector:
         condition: service_started
       sequencer:
@@ -15,6 +17,9 @@ services:
         exec miden-network-monitor start --fee-faucet-id "$${fee_faucet_id}"
     environment:
       MIDEN_MONITOR_RPC_URL: http://sequencer:57291
+      # The monitor pays transaction fees from notes this service sends it. Only used on a chain
+      # which charges fees.
+      MIDEN_MONITOR_FUNDING_SERVICE_URL: http://funding-service:50401
       MIDEN_MONITOR_PORT: "3001"
       MIDEN_MONITOR_NETWORK_NAME: Localhost
       MIDEN_MONITOR_FEE_FAUCET_ID: ${MIDEN_MONITOR_FEE_FAUCET_ID:-}
