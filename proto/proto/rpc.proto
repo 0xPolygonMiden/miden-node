@@ -42,7 +42,7 @@ service Api {
     rpc GetNotesById(NotesByIdRequest) returns (NotesByIdResponse) {}
 
     // Returns the script for a note by its root.
-    rpc GetNoteScriptByRoot(primitives.Word) returns (MaybeNoteScript) {}
+    rpc GetNoteScriptByRoot(NoteScriptByRootRequest) returns (MaybeNoteScript) {}
 
     // TRANSACTION SUBMISSION ENDPOINTS
     // --------------------------------------------------------------------------------------------
@@ -279,6 +279,10 @@ message NotesByIdResponse {
 
 // GET NOTE SCRIPT BY ROOT
 // ================================================================================================
+
+message NoteScriptByRootRequest {
+    primitives.Word root = 1;
+}
 
 // Represents a note script or nothing.
 message MaybeNoteScript {

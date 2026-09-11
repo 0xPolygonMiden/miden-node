@@ -555,7 +555,7 @@ impl RpcClient {
         &self,
         script_root: Word,
     ) -> Result<Option<NoteScript>, RpcError> {
-        let request: proto::primitives::Word = script_root.into();
+        let request = proto::rpc::NoteScriptByRootRequest { root: Some(script_root.into()) };
 
         let script = self
             .inner
