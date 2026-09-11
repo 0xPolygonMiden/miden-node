@@ -50,6 +50,10 @@ impl sequencer_api::SubmitAuthenticatedTxBatch for SequencerInternalService {
         _metadata: &tonic::metadata::MetadataMap,
         _extensions: &tonic::codegen::http::Extensions,
     ) -> tonic::Result<Self::Output> {
+        for tx in batch.transactions() {
+            self.account_admission.check(tx.account_update()).await?;
+        }
+
         self.block_producer
             .submit_authenticated_tx_batch(batch, inputs)
             .await
