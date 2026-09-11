@@ -67,6 +67,7 @@ use miden_protocol::block::{
     ValidatorConfig,
 };
 use miden_protocol::note::NoteType;
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::testing::account_id::{ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET, ACCOUNT_ID_SENDER};
 use miden_protocol::testing::noop_auth_component::NoopAuthComponent;
 use miden_protocol::transaction::{
@@ -150,9 +151,13 @@ impl TestStore {
         }
     }
 
-    async fn start_from_mock_genesis(genesis_block: &ProvenBlock) -> Self {
+    async fn start_from_mock_genesis(
+        genesis_block: &ProvenBlock,
+        protocol_config: &ProtocolConfig,
+    ) -> Self {
         let data_directory = new_tempdir();
-        let genesis_commitment = Self::bootstrap_from_mock_genesis(&data_directory, genesis_block);
+        let genesis_commitment =
+            Self::bootstrap_from_mock_genesis(&data_directory, genesis_block, protocol_config);
         let (state, ..) = State::for_tests(&data_directory).await;
         Self {
             state,
@@ -183,7 +188,11 @@ impl TestStore {
         genesis_commitment
     }
 
-    fn bootstrap_from_mock_genesis(path: &std::path::Path, genesis_block: &ProvenBlock) -> Word {
+    fn bootstrap_from_mock_genesis(
+        path: &std::path::Path,
+        genesis_block: &ProvenBlock,
+        protocol_config: &ProtocolConfig,
+    ) -> Word {
         let signatures = BlockSignatures::new(Vec::new()).unwrap();
         let signed_block = SignedBlock::new(
             genesis_block.header().clone(),
@@ -191,7 +200,7 @@ impl TestStore {
             signatures,
         )
         .expect("mock genesis header and body should be consistent");
-        let genesis_block = GenesisBlock::try_from(signed_block)
+        let genesis_block = GenesisBlock::new(signed_block, protocol_config.clone())
             .expect("mock genesis should become a store genesis block after stripping signatures");
         let genesis_commitment = genesis_block.inner().header().commitment();
 
@@ -326,6 +335,7 @@ fn replace_transaction_proof(
 struct ValidBatchFixture {
     request: proto::submission::TransactionBatch,
     genesis_block: ProvenBlock,
+    protocol_config: ProtocolConfig,
 }
 
 async fn build_valid_batch_fixture() -> ValidBatchFixture {
@@ -349,6 +359,7 @@ async fn build_valid_batch_fixture() -> ValidBatchFixture {
         .unwrap();
     let mock_chain = mock_chain_builder.build().unwrap();
     let genesis_block = mock_chain.latest_block();
+    let protocol_config = mock_chain.protocol_config().clone();
 
     let tx_context = mock_chain
         .build_transaction(account.id())
@@ -388,7 +399,7 @@ async fn build_valid_batch_fixture() -> ValidBatchFixture {
         sealed_transaction_inputs: vec![proto::submission::SealedTransactionInputs::default()],
     };
 
-    ValidBatchFixture { request, genesis_block }
+    ValidBatchFixture { request, genesis_block, protocol_config }
 }
 
 fn assert_beyond_tip(status: &tonic::Status, endpoint: &str) {
@@ -687,7 +698,10 @@ async fn rpc_server_rejects_invalid_deferred_transaction_proofs() {
 async fn rpc_server_forwards_valid_deferred_proofs_and_rejects_missing_witnesses() {
     let fixture = deferred_transaction_fixture().await;
     let data_directory = new_tempdir();
-    State::bootstrap(fixture.genesis.clone().try_into().unwrap(), &data_directory).unwrap();
+    let genesis =
+        GenesisBlock::new(fixture.genesis.clone(), fixture.inputs.protocol_config().clone())
+            .unwrap();
+    State::bootstrap(genesis, &data_directory).unwrap();
     let (state, ..) = State::for_tests(&data_directory).await;
     let submissions = Arc::new(std::sync::Mutex::new(Vec::new()));
     let (validator, _, _, _guard) =
@@ -928,16 +942,22 @@ async fn start_source_rpc(
 async fn start_source_rpc_with_genesis(
     ntx_builder: NtxBuilderClient,
     validator: ValidatorClient,
-    genesis_block: Option<&ProvenBlock>,
+    genesis_block: Option<(&ProvenBlock, &ProtocolConfig)>,
 ) -> (RpcClient, TestStore, TestServerGuard) {
     let store = match genesis_block {
-        Some(genesis_block) => TestStore::start_from_mock_genesis(genesis_block).await,
+        Some((genesis_block, protocol_config)) => {
+            TestStore::start_from_mock_genesis(genesis_block, protocol_config).await
+        },
         None => TestStore::start().await,
     };
     let block_producer_dir = new_tempdir();
     match genesis_block {
-        Some(genesis_block) => {
-            TestStore::bootstrap_from_mock_genesis(&block_producer_dir, genesis_block);
+        Some((genesis_block, protocol_config)) => {
+            TestStore::bootstrap_from_mock_genesis(
+                &block_producer_dir,
+                genesis_block,
+                protocol_config,
+            );
         },
         None => {
             TestStore::bootstrap(&block_producer_dir);
@@ -1389,10 +1409,11 @@ async fn full_node_forwards_complete_transaction_batch_to_source_rpc() {
     let (source_rpc, _source_store, _source_server) = start_source_rpc_with_genesis(
         dummy_client::<NtxBuilderClient>(),
         validator,
-        Some(&fixture.genesis_block),
+        Some((&fixture.genesis_block, &fixture.protocol_config)),
     )
     .await;
-    let local_store = TestStore::start_from_mock_genesis(&fixture.genesis_block).await;
+    let local_store =
+        TestStore::start_from_mock_genesis(&fixture.genesis_block, &fixture.protocol_config).await;
     let full_node = RpcService::new(
         Arc::clone(&local_store.state),
         RpcBackend::full_node(source_rpc, None),
