@@ -54,7 +54,7 @@ miden-funding-service start \
 | `--max-notes-per-tx`             | `16`         | Largest number of notes one transaction creates. Must not exceed 100.                                                                                                   |
 | `--tx-expiration-delta`          | `50`         | Blocks after its reference block at which a funding transaction expires.                                                                                                |
 | `--poll-interval`                | `1s`         | How often the service asks the node whether its notes are committed.                                                                                                    |
-| `--top-up-interval`              | `1m`         | How often the service scans for deposits sent to the funding account.                                                                                                   |
+| `--p2id-collection-interval`     | `1m`         | How often the service collects the pay-to-ID notes sent to the funding account.                                                                                         |
 | `--grpc.timeout`                 | `5m`         | Largest duration allocated to one gRPC request.                                                                                                                         |
 | `--rpc.timeout`                  | `10s`        | Timeout of a request to the node.                                                                                                                                       |
 | `--tx-prover.timeout`            | `1m`         | Timeout of a request to the remote prover.                                                                                                                              |
@@ -110,7 +110,7 @@ A malformed account ID is rejected with `INVALID_ARGUMENT` and no code. Every er
 
 To refill the account, send it a **public** pay-to-ID note that holds the native asset. The service scans for those
 notes and consumes them on its own, so no operator action is needed beyond sending the note. The scan runs every
-`--top-up-interval`, which defaults to one minute.
+`--p2id-collection-interval`, which defaults to one minute.
 
 A note is only collected when all of the following hold. Anything else is ignored, because the note tag encodes only the
 leading bits of an account ID, so notes for other accounts reach the service too, and anyone can send a note that holds
