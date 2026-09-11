@@ -27,6 +27,7 @@ use crate::node::RpcNodeClient;
 use crate::prover::Prover;
 use crate::server::FundingServer;
 use crate::status::{StatusRefresher, StatusSnapshot};
+use crate::top_up::TopUp;
 use crate::worker::{Funder, FunderSetup, WorkerConfig};
 
 mod account;
@@ -39,6 +40,7 @@ mod server;
 mod status;
 #[cfg(test)]
 mod test_utils;
+mod top_up;
 mod tx;
 mod worker;
 
@@ -74,6 +76,9 @@ pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(1);
 /// Default timeout of a request to the node's RPC API.
 pub const DEFAULT_RPC_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Default interval between two collections of the pay-to-ID notes sent to the funding account.
+pub const DEFAULT_P2ID_COLLECTION_INTERVAL: Duration = Duration::from_secs(60);
+
 /// Default timeout of a request to the remote prover.
 pub const DEFAULT_TX_PROVER_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -96,6 +101,7 @@ pub struct FundingServiceConfig {
     genesis: GenesisBlock,
     validator_signing_public_keys: Vec<ValidatorPublicKey>,
     tx_prover_url: Option<Url>,
+    p2id_collection_interval: Duration,
     http_timeout: Duration,
     rpc_timeout: Duration,
     tx_prover_timeout: Duration,
@@ -122,6 +128,7 @@ impl FundingServiceConfig {
             genesis,
             validator_signing_public_keys,
             tx_prover_url: None,
+            p2id_collection_interval: DEFAULT_P2ID_COLLECTION_INTERVAL,
             http_timeout: DEFAULT_HTTP_TIMEOUT,
             rpc_timeout: DEFAULT_RPC_TIMEOUT,
             tx_prover_timeout: DEFAULT_TX_PROVER_TIMEOUT,
@@ -136,6 +143,12 @@ impl FundingServiceConfig {
     #[must_use]
     pub fn with_tx_prover_url(mut self, url: Option<Url>) -> Self {
         self.tx_prover_url = url;
+        self
+    }
+
+    #[must_use]
+    pub fn with_p2id_collection_interval(mut self, interval: Duration) -> Self {
+        self.p2id_collection_interval = interval;
         self
     }
 
@@ -257,6 +270,7 @@ impl FundingServiceConfig {
                 poll_interval: self.poll_interval,
             },
             max_amount: self.max_amount,
+            p2id_collection_interval: self.p2id_collection_interval,
             http_timeout: self.http_timeout,
         })
     }
@@ -275,11 +289,13 @@ pub struct FundingService {
     protocol_config: ProtocolConfig,
     worker_config: WorkerConfig,
     max_amount: u64,
+    p2id_collection_interval: Duration,
     http_timeout: Duration,
 }
 
 impl FundingService {
-    /// Runs the HTTP server, the status refresher and the funding worker until one of them stops.
+    /// Runs the HTTP server, the status refresher, the funding worker and the top-up task until one
+    /// of them stops.
     pub async fn run(
         self,
         listener: TcpListener,
@@ -313,6 +329,19 @@ impl FundingService {
                 .run(refresher_shutdown)
                 .await
                 .context("the funding service status refresher failed")
+        });
+
+        let top_up = TopUp::new(
+            self.node.clone(),
+            self.prover.clone(),
+            self.funder_key.clone(),
+            self.protocol_config.clone(),
+            self.worker_config.expiration_delta,
+            self.p2id_collection_interval,
+        );
+        let top_up_shutdown = shutdown.clone();
+        tasks.spawn("top-up", async move {
+            top_up.run(top_up_shutdown).await.context("the funding account top-up failed")
         });
 
         let funder = Funder::new(

@@ -36,3 +36,11 @@ The transaction pays its own fee from the same vault the notes are paid from, so
 ## Private notes
 
 The notes are private, so their details never reach the node. The response therefore carries the note in full, and it is the only copy: a client which loses the response cannot recover the funds. This is also why the worker skips a request whose requester has gone away. Creating the note anyway would move funds into a note nobody holds the details of, and those funds could not be recovered.
+
+## Refilling the account
+
+An operator refills it by sending it a public pay-to-ID note that holds the native asset, and a collection task consumes those notes.
+
+The collection synchronizes notes by the funding account's tag. A filter keeps only the notes the account can consume: public, pay-to-ID, targeting the funding account, and holding the native asset and nothing else.
+
+The collection runs as its own transaction rather than riding along with a funding transaction. A deposit note comes from outside the service, so a note which turns out to be unconsumable must not be able to fail a request a client is waiting on.
