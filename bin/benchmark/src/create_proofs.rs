@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use miden_node_proto::{BuildUnchecked, DecodeMessage};
 use miden_protocol::account::auth::{AuthScheme, AuthSecretKey};
 use miden_protocol::account::{
     Account,
@@ -194,7 +195,8 @@ pub(crate) async fn run(
         .into_inner()
         .block_header
         .expect("RPC returned no block header");
-    let genesis_header: BlockHeader = genesis_header_proto.try_into().unwrap();
+    let genesis_header: BlockHeader =
+        genesis_header_proto.decode_fields().unwrap().build_unchecked().unwrap();
     let protocol_config = ProtocolConfig::current(AssetId::new_fungible(fee_faucet_id))
         .expect("fee faucet should produce a valid protocol configuration");
     assert_eq!(

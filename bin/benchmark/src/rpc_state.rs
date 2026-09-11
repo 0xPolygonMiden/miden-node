@@ -13,6 +13,7 @@ use miden_node_proto::generated::rpc::{
     FinalityLevel,
     SyncChainMmrRequest,
 };
+use miden_node_proto::{BuildUnchecked, DecodeMessage, Verify};
 use miden_protocol::block::BlockHeader;
 use miden_protocol::crypto::merkle::mmr::{MmrDelta, MmrPeaks, PartialMmr};
 use miden_protocol::transaction::PartialBlockchain;
@@ -34,8 +35,10 @@ pub(crate) async fn fetch_chain_tip_header(client: &mut RpcClient) -> BlockHeade
     response
         .block_header
         .expect("chain tip response missing block_header")
-        .try_into()
+        .decode_fields()
         .expect("failed to decode chain tip block header")
+        .build_unchecked()
+        .expect("failed to build chain tip block header")
 }
 
 /// Build a [`PartialBlockchain`] whose chain MMR matches the tip block's
@@ -85,8 +88,10 @@ pub(crate) async fn fetch_partial_blockchain(
         let mmr_delta_proto =
             response.mmr_delta.expect("sync_chain_mmr response missing mmr_delta");
         let mmr_delta: MmrDelta = mmr_delta_proto
-            .try_into()
-            .expect("failed to decode MmrDelta from sync_chain_mmr response");
+            .decode_fields()
+            .expect("failed to decode MmrDelta from sync_chain_mmr response")
+            .verify()
+            .expect("failed to verify MmrDelta from sync_chain_mmr response");
         partial_mmr.apply(mmr_delta).expect("failed to apply chain MMR delta");
     }
 

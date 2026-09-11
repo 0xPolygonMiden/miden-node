@@ -26,6 +26,7 @@ use miden_node_proto::generated::rpc::api_server::Api;
 use miden_node_proto::generated::sequencer::api_server::Api as SequencerApi;
 use miden_node_proto::generated::{self as proto};
 use miden_node_proto::server::{ntx_builder_api, rpc_api, sequencer_api, validator_api};
+use miden_node_proto::{BuildUnchecked, DecodeMessage};
 use miden_node_store::genesis::GenesisBlock;
 use miden_node_store::genesis::config::GenesisConfig;
 use miden_node_store::state::State;
@@ -729,8 +730,14 @@ async fn rpc_server_forwards_valid_deferred_proofs_and_rejects_missing_witnesses
     {
         let submissions = submissions.lock().unwrap();
         assert_eq!(submissions.len(), 1);
-        let forwarded: ProvenTransaction =
-            submissions[0].transaction.clone().unwrap().try_into().unwrap();
+        let forwarded: ProvenTransaction = submissions[0]
+            .transaction
+            .clone()
+            .unwrap()
+            .decode_fields()
+            .unwrap()
+            .build_unchecked()
+            .unwrap();
         assert_eq!(forwarded.id(), fixture.transaction.id());
         assert_eq!(forwarded.proof(), fixture.transaction.proof());
     }
@@ -1208,12 +1215,13 @@ fn test_encryption_key() -> proto::submission::TransactionEncryptionKey {
         public_key: vec![7; 32],
         attestations: vec![proto::submission::ValidatorKeyAttestation {
             validator_public_key: Some(proto::primitives::PublicKey {
-                variant: proto::primitives::PublicKeyVariant::EcdsaK256Keccak as i32,
-                encoded: vec![8; 33],
+                key: Some(proto::primitives::public_key::Key::EcdsaK256Keccak(vec![8; 33])),
             }),
             signature: Some(proto::primitives::Signature {
-                variant: proto::primitives::SignatureVariant::EcdsaK256Keccak as i32,
-                encoded: vec![9; 65],
+                signature: Some(proto::primitives::signature::Signature::EcdsaK256Keccak(vec![
+                    9;
+                    65
+                ])),
             }),
         }],
         next_key: Some(proto::submission::NextTransactionEncryptionKey {
