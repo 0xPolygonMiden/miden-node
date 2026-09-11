@@ -5,6 +5,7 @@ use std::time::Duration;
 use anyhow::Context;
 use miden_node_proto::clients::{Builder, ValidatorClient};
 use miden_node_proto::generated::validator::{BlockSubscriptionRequest, BlockSubscriptionResponse};
+use miden_node_proto::{BuildUnchecked, DecodeMessage};
 use miden_node_store::{BlockWriter, State, WriterTask};
 use miden_node_tracing::info;
 use miden_node_utils::shutdown::CancellationToken;
@@ -220,8 +221,10 @@ async fn read_blocks(
                 event
                     .block
                     .context("validator block stream response is missing block")?
-                    .try_into()
-                    .with_context(|| format!("failed to decode block from validator {url}"))
+                    .decode_fields()
+                    .with_context(|| format!("failed to decode block from validator {url}"))?
+                    .build_unchecked()
+                    .with_context(|| format!("failed to build block from validator {url}"))
             });
 
         let is_err = block.is_err();

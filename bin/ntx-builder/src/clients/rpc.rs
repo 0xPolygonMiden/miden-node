@@ -9,6 +9,7 @@ use backon::ExponentialBuilder;
 use futures::stream::{BoxStream, TryStreamExt};
 use futures::{Stream, StreamExt};
 use miden_node_proto::clients::{Builder, RpcClient as InnerRpcClient};
+use miden_node_proto::{BuildUnchecked, DecodeMessage, Verify};
 use miden_node_proto::domain::account::{
     AccountDetails, AccountResponse, AccountVaultDetails, StorageMapEntries
 };
@@ -399,8 +400,11 @@ fn decode_block_subscription_response(
         .ok_or_else(|| {
             RpcError::InvalidResponse("block subscription response is missing block".into())
         })?
-        .try_into()
+        .decode_fields()
         .map_err(ConversionError::from)
+        .map_err(RpcError::Conversion)?
+        .build_unchecked()
+        .map_err(ConversionError::new)
         .map_err(RpcError::Conversion)?;
     let committed_tip = BlockNumber::from(response.committed_chain_tip);
     Ok((block, committed_tip))
@@ -422,7 +426,7 @@ impl RpcClient {
     ) -> Result<AccountInputs, RpcError> {
         // Only request account code
         let request = proto::rpc::AccountRequest {
-            account_id: Some(proto::account::AccountId { id: account_id.to_bytes() }),
+            account_id: Some(account_id.into()),
             block_num: Some(block_num.into()),
             // TODO: should these commitments be cached on the NTX builder?
             details: Some(proto::rpc::account_request::AccountDetailRequest {
@@ -453,7 +457,7 @@ impl RpcClient {
         }
 
         let request = proto::rpc::AccountRequest {
-            account_id: Some(proto::account::AccountId { id: account_id.to_bytes() }),
+            account_id: Some(account_id.into()),
             block_num: block_num.map(Into::into),
             details: Some(proto::rpc::account_request::AccountDetailRequest {
                 code_commitment: None,
@@ -491,7 +495,7 @@ impl RpcClient {
         block_num: Option<BlockNumber>,
     ) -> Result<StorageMapWitness, RpcError> {
         let request = proto::rpc::AccountRequest {
-            account_id: Some(proto::account::AccountId { id: account_id.to_bytes() }),
+            account_id: Some(account_id.into()),
             block_num: block_num.map(Into::into),
             details: Some(proto::rpc::account_request::AccountDetailRequest {
                 code_commitment: None,
@@ -567,9 +571,15 @@ impl RpcClient {
             .script;
 
         script
-            .map(NoteScript::try_from)
+            .map(|script| {
+                script
+                    .decode_fields()
+                    .map_err(ConversionError::from)?
+                    .verify()
+                    .map_err(ConversionError::new)
+            })
             .transpose()
-            .map_err(|err| RpcError::Conversion(err.into()))
+            .map_err(RpcError::Conversion)
     }
 
     /// Issues a `GetAccount` request and decodes the response into the domain [`AccountResponse`].
