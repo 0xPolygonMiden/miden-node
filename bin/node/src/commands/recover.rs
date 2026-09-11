@@ -359,7 +359,7 @@ mod tests {
         (0..count).map(|_| SigningKey::new()).collect()
     }
 
-    fn validator_keys(signers: &[SigningKey]) -> ValidatorConfig {
+    fn validator_config(signers: &[SigningKey]) -> ValidatorConfig {
         ValidatorConfig::new(
             signers.iter().map(SigningKey::public_key).collect(),
             u16::try_from(signers.len()).unwrap(),
@@ -371,7 +371,7 @@ mod tests {
     fn signatures_are_ordered_against_the_validator_set() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         // Collect the signatures in reverse order to prove they get reordered.
         let shuffled = signers.iter().rev().map(|signer| signer.sign(commitment)).collect();
@@ -384,7 +384,7 @@ mod tests {
     fn signature_count_mismatch_is_rejected() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         let missing_one = signers.iter().take(2).map(|signer| signer.sign(commitment)).collect();
 
@@ -396,7 +396,7 @@ mod tests {
     fn duplicate_validator_signature_is_rejected() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         // Two streams served by the same validator: its signature appears twice and the third
         // validator's signature is missing.
@@ -414,7 +414,7 @@ mod tests {
     fn foreign_signature_is_rejected() {
         let commitment = Word::from([1u32, 2, 3, 4]);
         let signers = signers(3);
-        let keys = validator_keys(&signers);
+        let keys = validator_config(&signers);
 
         // One signature comes from a key outside the validator set.
         let with_foreign = vec![
